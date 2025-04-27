@@ -25,7 +25,7 @@ export default function LoginModal({ onLoginSuccess }) {
     return (
         <>
             {showModal && (
-                <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+                <div className="flex items-center justify-center">
                     <div className="bg-white p-8 rounded-xl w-80 shadow-lg">
                         <h2 className="text-2xl font-bold mb-6 text-center">Login</h2>
                         {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
