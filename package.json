@@ -1,0 +1,13 @@
+{
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "name": "bscbooking",
+  "version": "1.0.0",
+  "description": "BSC Booking Application",
+  "scripts": {
+    "frontend": "cd frontend && npm run dev",
+    "backend": "cd backend && node server.js",
+    "dev": "concurrently \"npm run backend\" \"npm run frontend\""
+  }
+}
