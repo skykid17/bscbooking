@@ -13,7 +13,5 @@ Go back to base folder:
 cd ..
 npx create-react-app frontend
 cd frontend
-npm install axios react-router-dom
-npm install -D tailwindcss postcss autoprefixer
-npx tailwindcss init -p
+npm install axios react-router-dom tailwindcss @tailwindcss/vite
 ```

@@ -1,26 +1,49 @@
-import { useState } from 'react';
-import LoginModal from './components/LoginModal';
+import { useState, useEffect } from 'react';
+import LoginPage from './components/auth/LoginPage';
+import RegisterPage from './components/auth/RegisterPage';
+import Dashboard from './components/dashboard/Dashboard';
+import Layout from './components/layout/Layout';
 
 function App() {
-    const [user, setUser] = useState(null);
+    // User state with localStorage persistence
+    const [user, setUser] = useState(() => {
+        const savedUser = localStorage.getItem('user');
+        return savedUser ? JSON.parse(savedUser) : null;
+    });
+    
+    // Auth page state (login or register)
+    const [authPage, setAuthPage] = useState('login');
 
+    // Handle user authentication
     const handleLoginSuccess = (userData) => {
         setUser(userData);
     };
 
+    // Handle logout
+    const handleLogout = () => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setUser(null);
+    };
+
     return (
-        <div className="min-h-screen bg-blue-100 flex items-center justify-center">
-            <div className="bg-white shadow-md rounded-lg p-6">
-                <h1 className="text-xl font-bold mb-4">Booking System</h1>
-                {!user && <LoginModal onLoginSuccess={handleLoginSuccess} />}
-                {user && (
-                    <div className="p-6">
-                        <h1 className="text font-bold">Welcome, {user.name}!</h1>
-                        <p className="mt-2 text-gray-700">Role: {user.role}</p>
-                    </div>
-                )}
-            </div>
-        </div>
+        <Layout user={user} onLogout={handleLogout}>
+            {!user ? (
+                authPage === 'login' ? (
+                    <LoginPage 
+                        onLoginSuccess={handleLoginSuccess} 
+                        onRegisterClick={() => setAuthPage('register')} 
+                    />
+                ) : (
+                    <RegisterPage 
+                        onRegisterSuccess={() => setAuthPage('login')}
+                        onLoginClick={() => setAuthPage('login')} 
+                    />
+                )
+            ) : (
+                <Dashboard user={user} />
+            )}
+        </Layout>
     );
 }
 

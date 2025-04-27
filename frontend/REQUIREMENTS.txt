@@ -1,0 +1,118 @@
+BSC Room Booking Web Application - Requirements Document
+1. Login Page (All Users)
+•	Modal: Provide a modal for users to input their username and password to log in.
+•	Authentication: Ensure secure login functionality with proper validation for username and password.
+2. Home Page (All Users)
+•	Booking Form:
+o	Room Selection: Dropdown for selecting a room.
+o	Default Date: The default start date should be set to the current date.
+o	Multiple Days Selection: A checkbox for multiple days selection. When checked:
+	An End Date field will be displayed.
+	The system should allow consecutive days bookings.
+o	Start Time and End Time:
+	Timeslot intervals should be in 30-minute increments, from 6:00 AM to 12:00 AM.
+	Only available timeslots should be selectable based on the room’s availability.
+o	Event: A text input field for the event name.
+o	Frequency: Default set to “single-use,” but allow options for recurring events (daily, weekly, monthly).
+o	Status: Default set to “pending.”
+•	Calendar View:
+o	Each room should have a dedicated monthly calendar tab.
+o	Only approved bookings should appear, showing:
+	Event Name
+	Start time - End time
+	User who booked
+o	For bookings spanning consecutive days, the event should span across necessary cells.
+o	Clicking on a booking cell should display a modal with:
+	Start time - End time
+	User
+	Event details
+	Approval status
+3. My Bookings Page (All Users)
+•	Filter Form: Allow filtering by:
+o	Room
+o	Date
+•	Booking Table:
+o	Show a paginated list of the user’s bookings with the following columns:
+	Created Date
+	Room
+	Start and End times
+	Event Name
+	Status (pending, approved, rejected)
+	Approved on (if applicable)
+o	Edit Pending Bookings: Users can edit their "pending" bookings.
+o	Delete Bookings: Users can delete their own bookings.
+4. Admin Page (Admin Role Only)
+•	Filter Form: Provide filters for:
+o	User
+o	Room
+o	Date
+o	Status
+•	Booking Table:
+o	Admins can view all bookings in a paginated table.
+o	Admins can sort bookings by headers (alphabetical, datetime).
+•	Actions:
+o	Admins can manage bookings:
+	Approve/Reject Pending Bookings
+	Edit Bookings
+	Delete Bookings
+	Manage Recurring Bookings:
+	Ability to delete or edit individual or all future bookings in a recurring series.
+•	Enhanced Booking Form:
+o	Admins can book on behalf of any user.
+o	Admins should be able to create single-use or recurring bookings.
+o	Recurring Bookings: Set frequency (weekly, biweekly, monthly, nth week).
+o	Create New User/Admin Accounts: Admins can create new users and assign roles (user/admin).
+o	Logging: All changes made by admins should be logged with the timestamp for traceability.
+5. User and Booking Schema
+•	User Schema:
+o	id (unique string)
+o	username (unique string)
+o	name (string)
+o	password (string)
+o	role (string) [user, admin]
+•	Booking Schema:
+o	id (unique string)
+o	user
+o	room (unique string)
+o	event (string)
+o	start_date (dd MM yy)
+o	start_time (hh:mm)
+o	end_date (dd MM yy)
+o	end_time (hh:mm)
+o	frequency (string) [single-use, daily, weekly, nth week, monthly]
+o	frequency_start (datetime)
+o	frequency_end (datetime)
+o	status (string) [pending, approved, rejected]
+•	Room Schema:
+o	id (unique string)
+o	room (unique string)
+o	floor (int) [2, 3, 4, 5]
+o	pax (integer, number of people the room can accommodate)
+•	Logs Schema:
+o	id (unique string)
+o	timestamp (datetime)
+o	action (string) [admin action logs such as approval, update, delete]
+6. User Interface Requirements
+•	Frontend: React + Bootstrap
+•	Backend: Node.js
+•	Database: MySQL (localhost:3306 root:P@55w0rd)
+7. Testing Accounts
+•	Test Accounts for User Role:
+o	user1:
+	Username: user1
+	Name: Alice
+	Password: user1
+	Role: user
+•	Test Accounts for Admin Role:
+o	admin1:
+	Username: admin1
+	Name: Bob
+	Password: admin1
+	Role: admin
+8. Security and Authentication
+•	Role-based Access Control: Ensure that users can only access appropriate pages (admin pages for admin role only).
+•	Session Management: Use secure sessions or JWT for user authentication.
+9. Other Notes
+•	Ensure pagination for booking tables on both user and admin pages.
+•	Implement validation for form inputs to prevent errors.
+•	Provide detailed error messages when necessary (e.g., for invalid input, failed actions).
