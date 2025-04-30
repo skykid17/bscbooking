@@ -2,8 +2,8 @@ export default function BookingModal({ booking, onClose }) {
     if (!booking) return null;
     
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-lg">
+        <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0,0,0,0.3)' }}>
+            <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-lg relative">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-xl font-bold">{booking.eventName}</h3>
                     <button 
@@ -45,7 +45,11 @@ export default function BookingModal({ booking, onClose }) {
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <p className="text-sm text-gray-500 font-medium">Status</p>
-                            <p className="inline-block px-2 py-1 text-xs rounded-full font-medium bg-green-100 text-green-800">
+                            <p className={`inline-block px-2 py-1 text-xs rounded-full font-medium
+                              ${booking.status === 'approved' ? 'bg-green-100 text-green-800' : 
+                                booking.status === 'rejected' ? 'bg-red-100 text-red-800' : 
+                                'bg-yellow-100 text-yellow-800'}`}
+                            >
                                 {booking.status}
                             </p>
                         </div>

@@ -1,0 +1,368 @@
+import { useState, useEffect } from 'react';
+import axios from 'axios';
+import AdminBookingTable from './AdminBookingTable';
+import AdminFilter from './AdminFilter';
+import UserManagement from './UserManagement';
+import BookingForm from '../booking/BookingForm';
+import CalendarView from '../calendar/CalendarView';
+import RoomManagement from './RoomManagement';
+
+export default function AdminDashboard({ user }) {
+    const [activeTab, setActiveTab] = useState('bookings');
+    const [bookings, setBookings] = useState([]);
+    const [filteredBookings, setFilteredBookings] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [users, setUsers] = useState([]);
+    const [rooms, setRooms] = useState([]);
+    const [selectedRoom, setSelectedRoom] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage] = useState(10);
+    
+    // Fetch rooms
+    useEffect(() => {
+        const fetchRooms = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await axios.get(
+                    'http://localhost:5000/api/rooms',
+                    {
+                        headers: { 
+                            'Authorization': `Bearer ${token}`
+                        }
+                    }
+                );
+                
+                const roomNames = response.data.map(room => room.name);
+                setRooms(roomNames);
+                if (roomNames.length > 0) {
+                    setSelectedRoom(roomNames[0]);
+                }
+            } catch (error) {
+                console.error('Error fetching rooms:', error);
+                // Fallback to static rooms if API fails
+                const staticRooms = [
+                    'Conference Room A', 'Conference Room B', 'Meeting Room 1', 'Meeting Room 2'
+                ];
+                setRooms(staticRooms);
+                setSelectedRoom(staticRooms[0]);
+            }
+        };
+        
+        fetchRooms();
+    }, []);
+    
+    // Fetch all bookings
+    useEffect(() => {
+        const fetchBookings = async () => {
+            try {
+                setLoading(true);
+                const token = localStorage.getItem('token');
+                
+                const response = await axios.get(
+                    'http://localhost:5000/api/bookings',
+                    {
+                        headers: { 
+                            'Authorization': `Bearer ${token}`
+                        }
+                    }
+                );
+                
+                // Format the data from backend to match frontend structure
+                const formattedBookings = response.data.map(booking => ({
+                    id: booking.id,
+                    userId: booking.user_id,
+                    userName: booking.user_name,
+                    room: booking.room,
+                    eventName: booking.event_name,
+                    startDate: booking.start_date,
+                    endDate: booking.end_date,
+                    startTime: booking.start_time,
+                    endTime: booking.end_time,
+                    frequency: booking.frequency,
+                    status: booking.status,
+                    createdAt: booking.created_at,
+                    approvedAt: booking.approved_at,
+                    approvedBy: booking.approved_by
+                }));
+                
+                setBookings(formattedBookings);
+                setFilteredBookings(formattedBookings);
+            } catch (error) {
+                console.error('Error fetching bookings:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        
+        fetchBookings();
+    }, []);
+    
+    // Fetch all users
+    useEffect(() => {
+        const fetchUsers = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                
+                const response = await axios.get(
+                    'http://localhost:5000/api/users',
+                    {
+                        headers: { 
+                            'Authorization': `Bearer ${token}`
+                        }
+                    }
+                );
+                
+                setUsers(response.data);
+            } catch (error) {
+                console.error('Error fetching users:', error);
+            }
+        };
+        
+        if (activeTab === 'users') {
+            fetchUsers();
+        }
+    }, [activeTab]);
+    
+    // Filter bookings
+    const handleFilter = (userId, roomName, date, statusValue) => {
+        let filtered = [...bookings];
+        
+        if (userId) {
+            filtered = filtered.filter(booking => booking.userId === userId);
+        }
+        
+        if (roomName) {
+            filtered = filtered.filter(booking => booking.room === roomName);
+        }
+        
+        if (date) {
+            filtered = filtered.filter(booking => {
+                const bookingStart = new Date(booking.startDate);
+                const bookingEnd = new Date(booking.endDate);
+                const filterDate = new Date(date);
+                
+                return filterDate >= bookingStart && filterDate <= bookingEnd;
+            });
+        }
+        
+        if (statusValue) {
+            filtered = filtered.filter(booking => booking.status === statusValue);
+        }
+        
+        setFilteredBookings(filtered);
+        setCurrentPage(1);
+    };
+    
+    // Handle booking actions
+    const handleApproveBooking = async (bookingId) => {
+        try {
+            const token = localStorage.getItem('token');
+            await axios.put(
+                `http://localhost:5000/api/bookings/${bookingId}/approve`,
+                {},
+                {
+                    headers: { 
+                        'Authorization': `Bearer ${token}`
+                    }
+                }
+            );
+            
+            // Update booking status in state
+            const updatedBookings = bookings.map(booking => 
+                booking.id === bookingId ? { ...booking, status: 'approved', approvedAt: new Date().toISOString() } : booking
+            );
+            
+            setBookings(updatedBookings);
+            setFilteredBookings(prev => 
+                prev.map(booking => booking.id === bookingId ? { ...booking, status: 'approved', approvedAt: new Date().toISOString() } : booking)
+            );
+        } catch (error) {
+            console.error('Error approving booking:', error);
+            alert('Failed to approve booking. Please try again.');
+        }
+    };
+    
+    const handleRejectBooking = async (bookingId) => {
+        try {
+            const token = localStorage.getItem('token');
+            await axios.put(
+                `http://localhost:5000/api/bookings/${bookingId}/reject`,
+                {},
+                {
+                    headers: { 
+                        'Authorization': `Bearer ${token}`
+                    }
+                }
+            );
+            
+            // Update booking status in state
+            const updatedBookings = bookings.map(booking => 
+                booking.id === bookingId ? { ...booking, status: 'rejected', approvedAt: new Date().toISOString() } : booking
+            );
+            
+            setBookings(updatedBookings);
+            setFilteredBookings(prev => 
+                prev.map(booking => booking.id === bookingId ? { ...booking, status: 'rejected', approvedAt: new Date().toISOString() } : booking)
+            );
+        } catch (error) {
+            console.error('Error rejecting booking:', error);
+            alert('Failed to reject booking. Please try again.');
+        }
+    };
+    
+    // Handle a new booking created from the form
+    const handleBookingCreated = (newBooking) => {
+        setBookings(prevBookings => [...prevBookings, newBooking]);
+        setActiveTab('bookings'); // Switch to bookings tab to see the new booking
+    };
+    
+    // Pagination
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    const currentBookings = filteredBookings.slice(indexOfFirstItem, indexOfLastItem);
+    const totalPages = Math.ceil(filteredBookings.length / itemsPerPage);
+    
+    return (
+        <div className="bg-white rounded-lg shadow">
+            <div className="border-b">
+                <h2 className="text-lg font-semibold px-4 pt-4">Admin Dashboard</h2>
+                <nav className="flex flex-wrap">
+                    <button
+                        className={`px-4 py-3 font-medium text-sm focus:outline-none ${activeTab === 'bookings' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                        onClick={() => setActiveTab('bookings')}
+                    >
+                        Manage Bookings
+                    </button>
+                    <button
+                        className={`px-4 py-3 font-medium text-sm focus:outline-none ${activeTab === 'create-booking' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                        onClick={() => setActiveTab('create-booking')}
+                    >
+                        Create Booking
+                    </button>
+                    <button
+                        className={`px-4 py-3 font-medium text-sm focus:outline-none ${activeTab === 'calendar' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                        onClick={() => setActiveTab('calendar')}
+                    >
+                        Calendar
+                    </button>
+                    <button
+                        className={`px-4 py-3 font-medium text-sm focus:outline-none ${activeTab === 'rooms' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                        onClick={() => setActiveTab('rooms')}
+                    >
+                        Manage Rooms
+                    </button>
+                    <button
+                        className={`px-4 py-3 font-medium text-sm focus:outline-none ${activeTab === 'users' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                        onClick={() => setActiveTab('users')}
+                    >
+                        Manage Users
+                    </button>
+                </nav>
+            </div>
+            
+            <div className="p-6">
+                {activeTab === 'create-booking' && (
+                    <BookingForm 
+                        user={user} 
+                        rooms={rooms} 
+                        onBookingCreated={handleBookingCreated} 
+                    />
+                )}
+                
+                {activeTab === 'calendar' && (
+                    <div>
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Select Room</label>
+                            <select
+                                className="w-full sm:w-64 p-2 border border-gray-300 rounded-md"
+                                value={selectedRoom}
+                                onChange={(e) => setSelectedRoom(e.target.value)}
+                            >
+                                {rooms.map(room => (
+                                    <option key={room} value={room}>{room}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <CalendarView room={selectedRoom} bookings={bookings} />
+                    </div>
+                )}
+                
+                {activeTab === 'bookings' && (
+                    <>
+                        <h3 className="text-xl font-semibold mb-6 text-gray-800">All Bookings</h3>
+                        
+                        {/* Filter component */}
+                        <AdminFilter 
+                            users={users}
+                            rooms={rooms}
+                            onFilter={handleFilter} 
+                        />
+                        
+                        {/* Bookings table */}
+                        {loading ? (
+                            <div className="text-center py-8">
+                                <p className="text-gray-500">Loading bookings...</p>
+                            </div>
+                        ) : filteredBookings.length === 0 ? (
+                            <div className="text-center py-8 bg-gray-50 rounded-md">
+                                <p className="text-gray-500">No bookings found.</p>
+                            </div>
+                        ) : (
+                            <>
+                                <AdminBookingTable 
+                                    bookings={currentBookings} 
+                                    onApprove={handleApproveBooking}
+                                    onReject={handleRejectBooking}
+                                />
+                                
+                                {/* Pagination */}
+                                {totalPages > 1 && (
+                                    <div className="flex justify-center mt-6">
+                                        <div className="flex space-x-1">
+                                            <button 
+                                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                                disabled={currentPage === 1}
+                                                className={`px-3 py-1 rounded ${currentPage === 1 ? 'bg-gray-100 text-gray-400' : 'bg-gray-200 hover:bg-gray-300'}`}
+                                            >
+                                                &laquo; Prev
+                                            </button>
+                                            
+                                            {[...Array(totalPages)].map((_, i) => (
+                                                <button
+                                                    key={i}
+                                                    onClick={() => setCurrentPage(i + 1)}
+                                                    className={`px-3 py-1 rounded ${currentPage === i + 1 ? 'bg-blue-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
+                                                >
+                                                    {i + 1}
+                                                </button>
+                                            ))}
+                                            
+                                            <button 
+                                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                                disabled={currentPage === totalPages}
+                                                className={`px-3 py-1 rounded ${currentPage === totalPages ? 'bg-gray-100 text-gray-400' : 'bg-gray-200 hover:bg-gray-300'}`}
+                                            >
+                                                Next &raquo;
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </>
+                )}
+                
+                {activeTab === 'rooms' && (
+                    <RoomManagement 
+                        rooms={rooms} 
+                        setRooms={setRooms}
+                    />
+                )}
+                
+                {activeTab === 'users' && (
+                    <UserManagement users={users} setUsers={setUsers} />
+                )}
+            </div>
+        </div>
+    );
+}

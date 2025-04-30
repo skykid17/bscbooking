@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 
 export default function BookingForm({ user, rooms, onBookingCreated }) {
@@ -16,6 +16,51 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    
+    // For admin booking on behalf of users
+    const [users, setUsers] = useState([]);
+    const [selectedUserId, setSelectedUserId] = useState(user.id);
+    const [selectedUserName, setSelectedUserName] = useState(user.name);
+    const [loadingUsers, setLoadingUsers] = useState(false);
+    
+    // Fetch all users if current user is admin
+    useEffect(() => {
+        if (user.role === 'admin') {
+            const fetchUsers = async () => {
+                try {
+                    setLoadingUsers(true);
+                    const token = localStorage.getItem('token');
+                    
+                    const response = await axios.get('http://localhost:5000/api/users', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    
+                    setUsers(response.data);
+                } catch (error) {
+                    console.error('Error fetching users:', error);
+                    setError('Failed to load users. You may not be able to book on behalf of users.');
+                } finally {
+                    setLoadingUsers(false);
+                }
+            };
+            
+            fetchUsers();
+        }
+    }, [user.role]);
+    
+    // Handle user selection change
+    const handleUserChange = (e) => {
+        const userId = e.target.value;
+        const selectedUser = users.find(u => u.id === userId);
+        
+        if (selectedUser) {
+            setSelectedUserId(selectedUser.id);
+            setSelectedUserName(selectedUser.name);
+        } else {
+            setSelectedUserId(user.id);
+            setSelectedUserName(user.name);
+        }
+    };
     
     // Generate time slots (6:00 AM to 12:00 AM in 30-minute increments)
     const generateTimeSlots = () => {
@@ -52,6 +97,11 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
             return;
         }
         
+        // If admin is booking on behalf of someone else, use that user's details
+        // Otherwise, use the current user's details
+        const bookingUserId = user.role === 'admin' ? selectedUserId : user.id;
+        const bookingUserName = user.role === 'admin' ? selectedUserName : user.name;
+        
         const bookingData = {
             room,
             startDate,
@@ -60,47 +110,73 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
             endTime,
             eventName,
             frequency,
-            userId: user.id,
-            userName: user.name,
-            status: 'pending'
+            userId: bookingUserId,
+            userName: bookingUserName
         };
         
         try {
             setIsLoading(true);
             
-            // In a real app, you'd send this to your backend
-            // const response = await axios.post('http://localhost:5000/api/bookings', bookingData);
+            // Log the request details for debugging
+            console.log('Sending booking request:', bookingData);
+            console.log('Auth token exists:', !!localStorage.getItem('token'));
             
-            // For now, simulate a successful booking
-            setTimeout(() => {
-                // Add an ID to simulate database created record
-                const createdBooking = { ...bookingData, id: Date.now().toString() };
-                
-                // Call the callback to update parent state
-                onBookingCreated(createdBooking);
-                
+            const token = localStorage.getItem('token');
+            const response = await axios.post(
+                'http://localhost:5000/api/bookings',
+                bookingData,
+                {
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                }
+            );
+            
+            console.log('Server response:', response.data);
+            
+            // Add created booking to state
+            const createdBooking = response.data.booking;
+            onBookingCreated(createdBooking);
+            
+            // Show different success message based on who created the booking
+            if (user.role === 'admin' && bookingUserId !== user.id) {
+                setSuccess(`Booking for ${bookingUserName} has been ${createdBooking.status === 'approved' ? 'created' : 'submitted for approval'}.`);
+            } else {
                 setSuccess('Your booking request has been submitted and is pending approval.');
-                
-                // Reset form
-                setEventName('');
-                setStartTime('09:00');
-                setEndTime('10:00');
-                setIsMultipleDays(false);
-                setEndDate(formattedToday);
-                setFrequency('single');
-                
-                setIsLoading(false);
-            }, 1000);
+            }
+            
+            // Reset form
+            setEventName('');
+            setStartTime('09:00');
+            setEndTime('10:00');
+            setIsMultipleDays(false);
+            setEndDate(formattedToday);
+            setFrequency('single');
             
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to create booking.');
+            console.error('Booking error:', err);
+            if (err.response) {
+                console.error('Error response data:', err.response.data);
+                console.error('Error response status:', err.response.status);
+                setError(err.response?.data?.message || `Error ${err.response.status}: Failed to create booking.`);
+            } else if (err.request) {
+                console.error('No response received:', err.request);
+                setError('Server did not respond. Please check if the backend is running.');
+            } else {
+                console.error('Request setup error:', err.message);
+                setError('Failed to send request: ' + err.message);
+            }
+        } finally {
             setIsLoading(false);
         }
     };
     
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
-            <h2 className="text-xl font-semibold mb-6 text-gray-800">Book a Room</h2>
+            <h2 className="text-xl font-semibold mb-6 text-gray-800">
+                {user.role === 'admin' ? 'Create Booking' : 'Book a Room'}
+            </h2>
             
             {error && (
                 <div className="p-3 bg-red-50 text-red-600 text-sm rounded border border-red-200">
@@ -115,6 +191,36 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
             )}
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* User selection dropdown for admins only */}
+                {user.role === 'admin' && (
+                    <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Book for User *</label>
+                        <select
+                            className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            value={selectedUserId}
+                            onChange={handleUserChange}
+                            disabled={loadingUsers}
+                            required
+                        >
+                            {loadingUsers ? (
+                                <option>Loading users...</option>
+                            ) : (
+                                <>
+                                    <option value={user.id}>{user.name} (You)</option>
+                                    {users
+                                        .filter(u => u.id !== user.id) // Filter out the current admin
+                                        .map(u => (
+                                            <option key={u.id} value={u.id}>
+                                                {u.name} ({u.username})
+                                            </option>
+                                        ))
+                                    }
+                                </>
+                            )}
+                        </select>
+                    </div>
+                )}
+                
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Room *</label>
                     <select
@@ -229,7 +335,7 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
                     className={`px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
                     disabled={isLoading}
                 >
-                    {isLoading ? 'Submitting...' : 'Submit Booking Request'}
+                    {isLoading ? 'Submitting...' : user.role === 'admin' ? 'Create Booking' : 'Submit Booking Request'}
                 </button>
             </div>
         </form>

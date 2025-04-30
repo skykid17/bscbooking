@@ -20,22 +20,65 @@ export default function MyBookings({ user, rooms, bookings, setBookings }) {
         const fetchBookings = async () => {
             try {
                 setLoading(true);
-                // In a real app, fetch from API
-                // const response = await axios.get(`http://localhost:5000/api/bookings?userId=${user.id}`);
-                // const userBookings = response.data;
+                const token = localStorage.getItem('token');
                 
-                // For now, filter from our local state
-                const userBookings = bookings.filter(booking => booking.userId === user.id);
-                setFilteredBookings(userBookings);
+                // Check that we have the actual ID, not username
+                console.log('User data:', user);
+                
+                if (!user.id) {
+                    console.error('User ID is missing, using local data');
+                    // Fall back to local data
+                    setFilteredBookings(bookings.filter(booking => booking.userId === user.id));
+                    setLoading(false);
+                    return;
+                }
+                
+                const response = await axios.get(
+                    `http://localhost:5000/api/bookings/user/${user.id}`,
+                    {
+                        headers: { 
+                            'Authorization': `Bearer ${token}`
+                        }
+                    }
+                );
+                
+                console.log('API Response:', response.data);
+                
+                // Format the data from backend to match frontend structure
+                const formattedBookings = response.data.map(booking => ({
+                    id: booking.id,
+                    userId: booking.user_id,
+                    userName: booking.user_name,
+                    room: booking.room,
+                    eventName: booking.event_name,
+                    startDate: booking.start_date,
+                    endDate: booking.end_date,
+                    startTime: booking.start_time,
+                    endTime: booking.end_time,
+                    frequency: booking.frequency,
+                    status: booking.status,
+                    createdAt: booking.created_at,
+                    approvedAt: booking.approved_at
+                }));
+                
+                setFilteredBookings(formattedBookings);
+                setBookings(prev => {
+                    // Merge existing bookings with new ones, avoiding duplicates by ID
+                    const existingIds = new Set(prev.map(b => b.id));
+                    const newBookings = formattedBookings.filter(b => !existingIds.has(b.id));
+                    return [...prev, ...newBookings];
+                });
             } catch (error) {
                 console.error('Error fetching bookings:', error);
+                // Fall back to local data if API fails
+                setFilteredBookings(bookings.filter(booking => booking.userId === user.id));
             } finally {
                 setLoading(false);
             }
         };
         
         fetchBookings();
-    }, [user.id, bookings]);
+    }, [user.id, user.username]);
     
     // Apply filters
     const handleFilter = (room, date) => {
@@ -74,42 +117,65 @@ export default function MyBookings({ user, rooms, bookings, setBookings }) {
     };
     
     // Update a booking
-    const handleUpdateBooking = (updatedBooking) => {
-        // In a real app, make API call
-        // const updateBooking = async () => {
-        //     try {
-        //         await axios.put(`http://localhost:5000/api/bookings/${updatedBooking.id}`, updatedBooking);
-        //     } catch (error) {
-        //         console.error('Error updating booking:', error);
-        //     }
-        // };
-        // updateBooking();
-        
-        // Update local state
-        const updatedBookings = bookings.map(booking => 
-            booking.id === updatedBooking.id ? updatedBooking : booking
-        );
-        
-        setBookings(updatedBookings);
-        setEditBooking(null);
+    const handleUpdateBooking = async (updatedBooking) => {
+        try {
+            const token = localStorage.getItem('token');
+            await axios.put(
+                `http://localhost:5000/api/bookings/${updatedBooking.id}`,
+                {
+                    room: updatedBooking.room,
+                    eventName: updatedBooking.eventName,
+                    startDate: updatedBooking.startDate,
+                    startTime: updatedBooking.startTime,
+                    endDate: updatedBooking.endDate,
+                    endTime: updatedBooking.endTime,
+                    frequency: updatedBooking.frequency
+                },
+                {
+                    headers: { 
+                        'Authorization': `Bearer ${token}`
+                    }
+                }
+            );
+            
+            // Update local state
+            const updatedBookings = bookings.map(booking => 
+                booking.id === updatedBooking.id ? updatedBooking : booking
+            );
+            
+            setBookings(updatedBookings);
+            setFilteredBookings(prev => 
+                prev.map(booking => booking.id === updatedBooking.id ? updatedBooking : booking)
+            );
+            setEditBooking(null);
+        } catch (error) {
+            console.error('Error updating booking:', error);
+            alert('Failed to update booking. Please try again.');
+        }
     };
     
     // Delete a booking
-    const handleDeleteBooking = (bookingId) => {
-        // In a real app, make API call
-        // const deleteBookingRequest = async () => {
-        //     try {
-        //         await axios.delete(`http://localhost:5000/api/bookings/${bookingId}`);
-        //     } catch (error) {
-        //         console.error('Error deleting booking:', error);
-        //     }
-        // };
-        // deleteBookingRequest();
-        
-        // Update local state
-        const updatedBookings = bookings.filter(booking => booking.id !== bookingId);
-        setBookings(updatedBookings);
-        setDeleteBooking(null);
+    const handleDeleteBooking = async (bookingId) => {
+        try {
+            const token = localStorage.getItem('token');
+            await axios.delete(
+                `http://localhost:5000/api/bookings/${bookingId}`,
+                {
+                    headers: { 
+                        'Authorization': `Bearer ${token}`
+                    }
+                }
+            );
+            
+            // Update local state
+            const updatedBookings = bookings.filter(booking => booking.id !== bookingId);
+            setBookings(updatedBookings);
+            setFilteredBookings(prev => prev.filter(booking => booking.id !== bookingId));
+            setDeleteBooking(null);
+        } catch (error) {
+            console.error('Error deleting booking:', error);
+            alert('Failed to delete booking. Please try again.');
+        }
     };
     
     // Calculate pagination

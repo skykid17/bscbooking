@@ -8,8 +8,6 @@ export default function Header({ user, onLogout }) {
                 {user && (
                     <div className="flex items-center space-x-4">
                         <nav className="text-sm text-gray-200">
-                            <a href="/dashboard" className="hover:text-gray-300">Dashboard</a>
-                            <a href="/bookings" className="hover:text-gray-300">Bookings</a>
                         </nav>
                         <button 
                             onClick={onLogout}

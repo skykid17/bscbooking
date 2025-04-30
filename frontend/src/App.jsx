@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import LoginPage from './components/auth/LoginPage';
 import RegisterPage from './components/auth/RegisterPage';
 import Dashboard from './components/dashboard/Dashboard';
+import AdminDashboard from './components/admin/AdminDashboard';
 import Layout from './components/layout/Layout';
 
 function App() {
@@ -41,7 +42,12 @@ function App() {
                     />
                 )
             ) : (
-                <Dashboard user={user} />
+                // Conditionally render dashboard based on user role
+                user.role === 'admin' ? (
+                    <AdminDashboard user={user} />
+                ) : (
+                    <Dashboard user={user} />
+                )
             )}
         </Layout>
     );
