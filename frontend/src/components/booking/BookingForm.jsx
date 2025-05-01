@@ -230,7 +230,7 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
                         required
                     >
                         {rooms.map(room => (
-                            <option key={room} value={room}>{room}</option>
+                            <option key={room.id} value={room.name}>{room.name}</option>
                         ))}
                     </select>
                 </div>
@@ -268,7 +268,7 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
                         onChange={(e) => setIsMultipleDays(e.target.checked)}
                     />
                     <label htmlFor="multipleDays" className="ml-2 block text-sm text-gray-700">
-                        Multiple days booking
+                        Multiple Consecutive Days
                     </label>
                 </div>
                 

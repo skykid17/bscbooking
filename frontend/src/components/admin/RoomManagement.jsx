@@ -37,7 +37,10 @@ export default function RoomManagement({ rooms, setRooms }) {
                 );
                 
                 setRoomsData(response.data);
-                setRooms(response.data.map(room => room.room));
+                setRooms(response.data.map(room => ({
+                    id: room.id,
+                    name: room.name
+                })));
             } catch (error) {
                 console.error('Error fetching rooms:', error);
                 setError('Failed to load rooms');
@@ -67,7 +70,7 @@ export default function RoomManagement({ rooms, setRooms }) {
             const response = await axios.post(
                 'http://localhost:5000/api/rooms',
                 { 
-                    name, 
+                    name: name, 
                     floor: parseInt(floor), 
                     pax: parseInt(capacity) 
                 },
@@ -81,7 +84,10 @@ export default function RoomManagement({ rooms, setRooms }) {
             // Add new room to state
             const newRoom = response.data.room;
             setRoomsData([...roomsData, newRoom]);
-            setRooms([...rooms, newRoom.room]);
+            setRooms([...rooms, {
+                id: newRoom.id,
+                name: newRoom.name
+            }]);
             setSuccess('Room created successfully');
             
             // Reset form
@@ -99,7 +105,7 @@ export default function RoomManagement({ rooms, setRooms }) {
     // Handle editing a room
     const handleEditClick = (room) => {
         setEditingRoom(room);
-        setEditName(room.room);
+        setEditName(room.name);
         setEditFloor(room.floor);
         setEditCapacity(room.pax);
     };
@@ -137,14 +143,14 @@ export default function RoomManagement({ rooms, setRooms }) {
             const updatedRoomsData = roomsData.map(room => 
                 room.id === editingRoom.id ? {
                     ...room,
-                    room: editName,
+                    name: editName,
                     floor: parseInt(editFloor),
                     pax: parseInt(editCapacity)
                 } : room
             );
             
             setRoomsData(updatedRoomsData);
-            setRooms(updatedRoomsData.map(room => room.room));
+            setRooms(updatedRoomsData.map(room));
             setSuccess('Room updated successfully');
             setEditingRoom(null);
         } catch (error) {
@@ -177,7 +183,7 @@ export default function RoomManagement({ rooms, setRooms }) {
             // Remove room from state
             const updatedRoomsData = roomsData.filter(room => room.id !== roomId);
             setRoomsData(updatedRoomsData);
-            setRooms(updatedRoomsData.map(room => room.room));
+            setRooms(updatedRoomsData.map(room));
             setSuccess('Room deleted successfully');
         } catch (error) {
             console.error('Error deleting room:', error);
@@ -283,7 +289,7 @@ export default function RoomManagement({ rooms, setRooms }) {
                         ) : (
                             roomsData.map((room) => (
                                 <tr key={room.id} className="hover:bg-gray-50">
-                                    <td className="px-4 py-3 text-sm text-gray-800">{room.room}</td>
+                                    <td className="px-4 py-3 text-sm text-gray-800">{room.name}</td>
                                     <td className="px-4 py-3 text-sm text-gray-800">{room.floor}</td>
                                     <td className="px-4 py-3 text-sm text-gray-800">{room.pax}</td>
                                     <td className="px-4 py-3 text-sm">

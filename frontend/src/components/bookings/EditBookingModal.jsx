@@ -126,7 +126,7 @@ export default function EditBookingModal({ booking, rooms, onSave, onClose }) {
                                 onChange={(e) => setIsMultipleDays(e.target.checked)}
                             />
                             <label htmlFor="editMultipleDays" className="ml-2 block text-sm text-gray-700">
-                                Multiple days booking
+                                Multiple Consecutive Days
                             </label>
                         </div>
                         

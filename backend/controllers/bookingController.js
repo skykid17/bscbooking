@@ -37,7 +37,7 @@ exports.createBooking = async (req, res) => {
         // Check for time conflicts
         const [conflicts] = await pool.query(
             `SELECT * FROM bookings 
-            WHERE room = ? AND status != 'rejected'
+            WHERE name = ? AND status != 'rejected'
             AND ((start_date = ? AND end_date = ? AND 
                 ((start_time <= ? AND end_time > ?) OR 
                 (start_time < ? AND end_time >= ?) OR 
@@ -215,7 +215,7 @@ exports.updateBooking = async (req, res) => {
         // Check for time conflicts (excluding this booking)
         const [conflicts] = await pool.query(
             `SELECT * FROM bookings 
-            WHERE room = ? AND id != ? AND status != 'rejected'
+            WHERE name = ? AND id != ? AND status != 'rejected'
             AND ((start_date = ? AND end_date = ? AND 
                 ((start_time <= ? AND end_time > ?) OR 
                 (start_time < ? AND end_time >= ?) OR 

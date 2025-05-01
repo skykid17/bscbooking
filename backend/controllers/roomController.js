@@ -40,7 +40,7 @@ exports.createRoom = async (req, res) => {
     
     try {
         // Check if room already exists
-        const [existingRoom] = await pool.query('SELECT * FROM rooms WHERE room = ?', [name]);
+        const [existingRoom] = await pool.query('SELECT * FROM rooms WHERE name = ?', [name]);
         
         if (existingRoom.length > 0) {
             return res.status(409).json({ message: 'A room with this name already exists' });
@@ -49,7 +49,7 @@ exports.createRoom = async (req, res) => {
         const id = uuidv4();
         
         await pool.query(
-            'INSERT INTO rooms (id, room, floor, pax) VALUES (?, ?, ?, ?)',
+            'INSERT INTO rooms (id, name, floor, pax) VALUES (?, ?, ?, ?)',
             [id, name, floor, pax]
         );
         
@@ -65,7 +65,7 @@ exports.createRoom = async (req, res) => {
             message: 'Room created successfully',
             room: {
                 id,
-                room: name,
+                name,
                 floor,
                 pax
             }
@@ -94,26 +94,26 @@ exports.updateRoom = async (req, res) => {
         }
         
         // Check if new name already exists for another room
-        const [roomWithName] = await pool.query('SELECT * FROM rooms WHERE room = ? AND id != ?', [name, id]);
+        const [roomWithName] = await pool.query('SELECT * FROM rooms WHERE name = ? AND id != ?', [name, id]);
         
         if (roomWithName.length > 0) {
             return res.status(409).json({ message: 'A room with this name already exists' });
         }
         
         await pool.query(
-            'UPDATE rooms SET room = ?, floor = ?, pax = ? WHERE id = ?',
+            'UPDATE rooms SET name = ?, floor = ?, pax = ? WHERE id = ?',
             [name, floor, pax, id]
         );
         
         // Update any bookings referencing this room
         await pool.query(
             'UPDATE bookings SET room = ? WHERE room = ?',
-            [name, existingRoom[0].room]
+            [name, existingRoom[0].name]
         );
         
         // Log the action
         const logId = uuidv4();
-        const action = `Admin ${req.user.username} updated room "${existingRoom[0].room}" to "${name}"`;
+        const action = `Admin ${req.user.username} updated room "${existingRoom[0].name}" to "${name}"`;
         await pool.query(
             'INSERT INTO logs (id, timestamp, action) VALUES (?, NOW(), ?)',
             [logId, action]
@@ -123,7 +123,7 @@ exports.updateRoom = async (req, res) => {
             message: 'Room updated successfully',
             room: {
                 id,
-                room: name,
+                name,
                 floor,
                 pax
             }
@@ -150,11 +150,11 @@ exports.deleteRoom = async (req, res) => {
         await pool.query('DELETE FROM rooms WHERE id = ?', [id]);
         
         // Delete all bookings for this room
-        await pool.query('DELETE FROM bookings WHERE room = ?', [existingRoom[0].room]);
+        await pool.query('DELETE FROM bookings WHERE name = ?', [existingRoom[0].name]);
         
         // Log the action
         const logId = uuidv4();
-        const action = `Admin ${req.user.username} deleted room "${existingRoom[0].room}"`;
+        const action = `Admin ${req.user.username} deleted room "${existingRoom[0].name}"`;
         await pool.query(
             'INSERT INTO logs (id, timestamp, action) VALUES (?, NOW(), ?)',
             [logId, action]

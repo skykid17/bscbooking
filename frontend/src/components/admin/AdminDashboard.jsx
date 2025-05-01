@@ -32,19 +32,17 @@ export default function AdminDashboard({ user }) {
                     }
                 );
                 
-                const roomNames = response.data.map(room => room.name);
-                setRooms(roomNames);
-                if (roomNames.length > 0) {
-                    setSelectedRoom(roomNames[0]);
+                const roomObjects = response.data.map(room => ({
+                    id: room.id,
+                    name: room.name
+                }));
+                setRooms(roomObjects);
+                if (roomObjects.length > 0) {
+                    setSelectedRoom(roomObjects[0].name);
                 }
             } catch (error) {
                 console.error('Error fetching rooms:', error);
-                // Fallback to static rooms if API fails
-                const staticRooms = [
-                    'Conference Room A', 'Conference Room B', 'Meeting Room 1', 'Meeting Room 2'
-                ];
-                setRooms(staticRooms);
-                setSelectedRoom(staticRooms[0]);
+                alert('Failed to fetch rooms. Please try again.');
             }
         };
         
@@ -124,15 +122,15 @@ export default function AdminDashboard({ user }) {
     }, [activeTab]);
     
     // Filter bookings
-    const handleFilter = (userId, roomName, date, statusValue) => {
+    const handleFilter = (userId, roomObjects, date, statusValue) => {
         let filtered = [...bookings];
         
         if (userId) {
             filtered = filtered.filter(booking => booking.userId === userId);
         }
         
-        if (roomName) {
-            filtered = filtered.filter(booking => booking.room === roomName);
+        if (roomObjects) {
+            filtered = filtered.filter(booking => roomObjects.some(room => room.name === booking.room));
         }
         
         if (date) {
@@ -279,7 +277,7 @@ export default function AdminDashboard({ user }) {
                                 onChange={(e) => setSelectedRoom(e.target.value)}
                             >
                                 {rooms.map(room => (
-                                    <option key={room} value={room}>{room}</option>
+                                    <option key={room.id} value={room.name}>{room.name}</option>
                                 ))}
                             </select>
                         </div>

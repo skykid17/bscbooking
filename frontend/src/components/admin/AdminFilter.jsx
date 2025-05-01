@@ -45,8 +45,8 @@ export default function AdminFilter({ users, rooms, onFilter }) {
                         onChange={(e) => setRoom(e.target.value)}
                     >
                         <option value="">All Rooms</option>
-                        {rooms.map(roomOption => (
-                            <option key={roomOption} value={roomOption}>{roomOption}</option>
+                        {rooms.map(room => (
+                            <option key={room.id} value={room.name}>{room.name}</option>
                         ))}
                     </select>
                 </div>

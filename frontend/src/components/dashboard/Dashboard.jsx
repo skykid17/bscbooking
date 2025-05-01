@@ -53,7 +53,7 @@ export default function Dashboard({ user }) {
                                 onChange={(e) => setSelectedRoom(e.target.value)}
                             >
                                 {rooms.map(room => (
-                                    <option key={room} value={room}>{room}</option>
+                                    <option key={room.id} value={room.name}>{room.name}</option>
                                 ))}
                             </select>
                         </div>
