@@ -9,3 +9,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+.modal-backdrop {
+  background-color: rgba(0, 0, 0, 0.5);
+}

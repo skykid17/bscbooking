@@ -1,10 +1,13 @@
 import { useState } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faRotateRight } from '@fortawesome/free-solid-svg-icons';
 
-export default function AdminFilter({ users, rooms, onFilter }) {
+export default function AdminFilter({ users, rooms, onFilter, onRefresh }) {
     const [userId, setUserId] = useState('');
     const [room, setRoom] = useState('');
     const [date, setDate] = useState('');
     const [status, setStatus] = useState('');
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -17,6 +20,33 @@ export default function AdminFilter({ users, rooms, onFilter }) {
         setDate('');
         setStatus('');
         onFilter('', '', '', '');
+    };
+
+    const handleRefresh = async () => {
+        if (!onRefresh || typeof onRefresh !== 'function') {
+            console.error('onRefresh prop is not a function');
+            return;
+        }
+        
+        // Set refreshing state to show spinner
+        setIsRefreshing(true);
+        
+        try {
+            // Call the refresh function from props
+            await onRefresh();
+            
+            // Also apply current filters to the refreshed data
+            if (userId || room || date || status) {
+                onFilter(userId, room, date, status);
+            }
+        } catch (error) {
+            console.error('Error refreshing data:', error);
+        } finally {
+            // Add a small delay for better UX
+            setTimeout(() => {
+                setIsRefreshing(false);
+            }, 500);
+        }
     };
 
     return (
@@ -88,6 +118,14 @@ export default function AdminFilter({ users, rooms, onFilter }) {
                         className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-100"
                     >
                         Reset
+                    </button>
+                    <button 
+                        type="button"
+                        onClick={handleRefresh} 
+                        className={`refresh-btn p-2 rounded bg-gray-200 hover:bg-gray-300 focus:outline-none ${isRefreshing ? 'animate-spin' : ''}`}
+                        disabled={isRefreshing}
+                    >
+                        <FontAwesomeIcon icon={faRotateRight} />
                     </button>
                 </div>
             </form>

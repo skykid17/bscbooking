@@ -51,55 +51,37 @@ async function initializeDatabase() {
             CREATE TABLE IF NOT EXISTS repeat_series (
                 id VARCHAR(36) PRIMARY KEY,
                 created_by VARCHAR(36) NOT NULL,
-                
-                -- Repeat configuration
                 repeat_type ENUM('daily', 'weekly', 'monthly', 'yearly') NOT NULL,
                 repeat_interval INT NOT NULL DEFAULT 1, -- Every X days/weeks/etc.
                 repeat_on JSON DEFAULT NULL, -- e.g., ["Monday", "Wednesday"] or ["15"] or ["February", "April"]
-                
-                -- End conditions
                 ends_after INT DEFAULT NULL, -- Repeat N times
                 ends_on DATE DEFAULT NULL,   -- Or until specific date (max 2 years from now)
-                
                 created_at DATETIME NOT NULL,
-
                 FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
             );
         `);
-        console.log('Recurring series table created or already exists');
+        console.log('Repeat series table created or already exists');
 
         // Create bookings table
         await connection.query(`
             CREATE TABLE IF NOT EXISTS bookings (
                 id VARCHAR(36) PRIMARY KEY,
-
-                -- User and event info
                 user_id VARCHAR(36) NOT NULL,
                 user_name VARCHAR(255) NOT NULL,
                 room VARCHAR(255) NOT NULL,
                 event_name VARCHAR(255) NOT NULL,
-                
-                -- Date/time info
                 start_date DATE NOT NULL,
                 start_time VARCHAR(5) NOT NULL,
                 end_date DATE NOT NULL,
                 end_time VARCHAR(5) NOT NULL,
-
-                -- Link to repeat config
                 series_id VARCHAR(36) DEFAULT NULL,
-
-                -- Optional legacy fields
-                frequency VARCHAR(50) DEFAULT 'single', -- optional for UI clarity
+                frequency VARCHAR(50) DEFAULT 'single',
                 frequency_start DATETIME DEFAULT NULL,
                 frequency_end DATETIME DEFAULT NULL,
-                
-                -- Admin metadata
                 created_at DATE NOT NULL,
                 status VARCHAR(20) DEFAULT 'pending', -- pending, approved, rejected
                 approved_at DATETIME DEFAULT NULL,
                 approved_by VARCHAR(36) DEFAULT NULL,
-
-                -- Foreign Keys
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
                 FOREIGN KEY (series_id) REFERENCES repeat_series(id) ON DELETE SET NULL
             );
@@ -118,27 +100,27 @@ async function initializeDatabase() {
         
         // Create test users if they don't exist
         // Check if user1 exists
-        const [existingUser] = await connection.query(`SELECT * FROM users WHERE username = 'user1'`);
+        const [existingUser] = await connection.query(`SELECT * FROM users WHERE username = 'user'`);
         if (existingUser.length === 0) {
             const userId = uuidv4();
             const hashedPassword = await bcrypt.hash('user1', 10);
             await connection.query(
                 `INSERT INTO users (id, username, name, password, role) VALUES (?, ?, ?, ?, ?)`,
-                [userId, 'user1', 'Alice', hashedPassword, 'user']
+                [userId, 'user1', 'user', hashedPassword, 'user']
             );
-            console.log('Test user "user1" created');
+            console.log('Test user "user" created');
         } else {
-            console.log('Test user "user1" already exists');
+            console.log('Test user "user" already exists');
         }
         
         // Check if admin1 exists
-        const [existingAdmin] = await connection.query(`SELECT * FROM users WHERE username = 'admin1'`);
+        const [existingAdmin] = await connection.query(`SELECT * FROM users WHERE username = 'admin'`);
         if (existingAdmin.length === 0) {
             const adminId = uuidv4();
             const hashedPassword = await bcrypt.hash('admin', 10);
             await connection.query(
                 `INSERT INTO users (id, username, name, password, role) VALUES (?, ?, ?, ?, ?)`,
-                [adminId, 'admin', 'Bob', hashedPassword, 'admin']
+                [adminId, 'admin', 'admin', hashedPassword, 'admin']
             );
             console.log('Test admin "admin" created');
         } else {
@@ -147,7 +129,7 @@ async function initializeDatabase() {
         
         // Create test rooms if they don't exist
         const rooms = [
-            { name: 'Library', floor: 2, pax: 5 },
+            { name: 'Damien Hall', floor: 2, pax: 100 },
             { name: 'St John', floor: 3, pax: 10 },
             { name: 'St Andrew', floor: 4, pax: 8 },
             { name: 'Attic', floor: 5, pax: 20 }

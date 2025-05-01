@@ -1,13 +1,89 @@
-import { useState } from 'react';
-import BookingForm from '../booking/BookingForm';
+import { useState, useEffect, useCallback } from 'react';
+import BookingForm from '../bookings/BookingForm';
 import CalendarView from '../calendar/CalendarView';
 import MyBookings from '../bookings/MyBookings';
+import { toast } from 'react-toastify';
+import axios from 'axios';
 
 export default function Dashboard({ user }) {
     const [activeTab, setActiveTab] = useState('booking');
-    const [rooms] = useState(['Conference Room A', 'Conference Room B', 'Meeting Room 1', 'Meeting Room 2']);
-    const [selectedRoom, setSelectedRoom] = useState(rooms[0]);
+    const [rooms, setRooms] = useState([]);
+    const [selectedRoom, setSelectedRoom] = useState('');
     const [bookings, setBookings] = useState([]);
+
+    const fetchBookings = useCallback(async () => {
+        try {
+            const token = localStorage.getItem('token');
+            // API call to fetch bookings
+            const response = await axios.get(
+                `http://localhost:5000/api/bookings/user/${user.id}`,
+                {
+                    headers: { 
+                        'Authorization': `Bearer ${token}`
+                    }
+                }
+            );
+            
+            // Format the data from backend
+            const formattedBookings = response.data.map(booking => ({
+                id: booking.id,
+                userId: booking.user_id,
+                userName: booking.user_name,
+                room: booking.room,
+                eventName: booking.event_name,
+                startDate: booking.start_date,
+                endDate: booking.end_date,
+                startTime: booking.start_time,
+                endTime: booking.end_time,
+                frequency: booking.frequency,
+                status: booking.status,
+                createdAt: booking.created_at,
+                seriesId: booking.series_id
+            }));
+
+            // Update bookings state
+            setBookings(formattedBookings);
+            return formattedBookings;
+        } catch (error) {
+            console.error('Error fetching bookings:', error);
+            toast.error('Failed to refresh booking data');
+            return [];
+        }
+    }, [user.id]);
+
+    useEffect(() => {
+        fetchBookings();
+    }, [fetchBookings]);
+
+    useEffect(() => {
+        const fetchRooms = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await axios.get(
+                    'http://localhost:5000/api/rooms',
+                    {
+                        headers: { 
+                            'Authorization': `Bearer ${token}`
+                        }
+                    }
+                );
+                
+                const roomObjects = response.data.map(room => ({
+                    id: room.id,
+                    name: room.name
+                }));
+                setRooms(roomObjects);
+                if (roomObjects.length > 0) {
+                    setSelectedRoom(roomObjects[0].name);
+                }
+            } catch (error) {
+                console.error('Error fetching rooms:', error);
+                alert('Failed to fetch rooms. Please try again.');
+            }
+        };
+        
+        fetchRooms();
+    }, []);
     
     return (
         <div className="bg-white rounded-lg shadow">
@@ -40,7 +116,10 @@ export default function Dashboard({ user }) {
                     <BookingForm 
                         user={user} 
                         rooms={rooms} 
-                        onBookingCreated={(booking) => setBookings([...bookings, booking])} 
+                        onBookingCreated={(booking) => {
+                            setBookings(prev => [...prev, booking]);
+                        }} 
+                        onRefresh={fetchBookings}
                     />
                 )}
                 {activeTab === 'calendar' && (
@@ -61,7 +140,12 @@ export default function Dashboard({ user }) {
                     </div>
                 )}
                 {activeTab === 'mybookings' && (
-                    <MyBookings user={user} rooms={rooms} bookings={bookings} setBookings={setBookings} />
+                    <MyBookings 
+                        user={user} 
+                        rooms={rooms} 
+                        bookings={bookings} 
+                        setBookings={setBookings}
+                    />
                 )}
             </div>
         </div>

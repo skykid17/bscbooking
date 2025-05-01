@@ -1,69 +1,110 @@
 import { useState } from 'react';
-import EditBookingModal from '../bookings/EditBookingModal';
-import DeleteBookingModal from '../bookings/DeleteBookingModal';
+import EditSeriesBookingModal from '../bookings/EditSeriesBookingModal';
+import DeleteSeriesBookingModal from '../bookings/DeleteSeriesBookingModal'; 
+import ApproveSeriesBookingModal from '../bookings/ApproveSeriesBookingModal';
 
-export default function AdminBookingTable({ bookings, onApprove, onReject }) {
+export default function AdminBookingTable({ bookings, onApprove, onReject, onEdit, onDelete, onRefresh, rooms }) {
     const [editBooking, setEditBooking] = useState(null);
     const [deleteBooking, setDeleteBooking] = useState(null);
+    const [approveBooking, setApproveBooking] = useState(null);
     
-    // Format date for display
     const formatDate = (dateString) => {
-        if (!dateString) return '';
-        const options = { year: 'numeric', month: 'short', day: 'numeric' };
-        return new Date(dateString).toLocaleDateString(undefined, options);
+        const date = new Date(dateString);
+        return date.toLocaleDateString();
     };
     
-    // Format datetime for display
-    const formatDateTime = (dateString) => {
-        if (!dateString) return '';
-        const options = { 
-            year: 'numeric', 
-            month: 'short', 
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        };
-        return new Date(dateString).toLocaleString(undefined, options);
+    const formatDateTime = (dateTimeString) => {
+        if (!dateTimeString) return '';
+        const date = new Date(dateTimeString);
+        return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+    };
+    
+    const isSeriesBooking = (booking) => {
+        return booking.seriesId ? true : false;
+    };
+    
+    const handleEdit = (booking) => {
+        if (typeof onEdit === 'function') {
+            onEdit(booking);
+        } else {
+            console.error("onEdit prop is not a function");
+        }
+    };
+    
+    const handleDelete = (bookingId, deleteType) => {
+        if (typeof onDelete === 'function') {
+            onDelete(bookingId, deleteType);
+        } else {
+            console.error("onDelete prop is not a function");
+        }
+        setDeleteBooking(null);
+    };
+    
+    const handleApproveReject = (action, bookingId, approveType) => {
+        if (action === 'approve' && typeof onApprove === 'function') {
+            onApprove(bookingId, approveType);
+        } else if (action === 'reject' && typeof onReject === 'function') {
+            onReject(bookingId, approveType);
+        } else {
+            console.error(`on${action.charAt(0).toUpperCase() + action.slice(1)} prop is not a function`);
+        }
+        setApproveBooking(null);
+    };
+
+    const refreshData = () => {
+        if (typeof onRefresh === 'function') {
+            onRefresh();
+        } else {
+            console.error("onRefresh prop is not a function");
+        }
     };
 
     return (
         <div className="overflow-x-auto">
-            <table className="min-w-full bg-white border border-gray-200 rounded-lg overflow-hidden">
-                <thead className="bg-gray-100">
-                    <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Room</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Event</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+            <table className="min-w-full bg-white">
+                <thead>
+                    <tr className="bg-gray-100 text-gray-700 text-sm uppercase">
+                        <th className="px-4 py-3 text-left">User</th>
+                        <th className="px-4 py-3 text-left">Date Created</th>
+                        <th className="px-4 py-3 text-left">Room</th>
+                        <th className="px-4 py-3 text-left">Date</th>
+                        <th className="px-4 py-3 text-left">Time</th>
+                        <th className="px-4 py-3 text-left">Event Name</th>
+                        <th className="px-4 py-3 text-left">Series</th>
+                        <th className="px-4 py-3 text-left">Status</th>
+                        <th className="px-4 py-3 text-left">Actions</th>
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
-                    {bookings.map((booking) => (
-                        <tr key={booking.id} className="hover:bg-gray-50">
+                <tbody>
+                    {bookings.map(booking => (
+                        <tr key={booking.id} className="border-b hover:bg-gray-50">
+                            <td className="px-4 py-3 text-sm">{booking.userName}</td>
                             <td className="px-4 py-3 text-sm">
-                                <div className="font-medium text-gray-800">{booking.userName}</div>
-                                <div className="text-gray-500 text-xs">{booking.userId}</div>
+                                {booking.createdAt ? formatDate(booking.createdAt) : formatDate(new Date())}
                             </td>
-                            <td className="px-4 py-3 text-sm text-gray-800">{booking.room}</td>
-                            <td className="px-4 py-3 text-sm text-gray-800">
+                            <td className="px-4 py-3 text-sm">{booking.room}</td>
+                            <td className="px-4 py-3 text-sm">
                                 {booking.startDate === booking.endDate 
                                     ? formatDate(booking.startDate)
                                     : `${formatDate(booking.startDate)} - ${formatDate(booking.endDate)}`
                                 }
                             </td>
-                            <td className="px-4 py-3 text-sm text-gray-800">
+                            <td className="px-4 py-3 text-sm">
                                 {booking.startTime} - {booking.endTime}
                             </td>
-                            <td className="px-4 py-3 text-sm text-gray-800">
-                                <div className="font-medium">{booking.eventName}</div>
-                                <div className="text-gray-500 text-xs">{booking.frequency !== 'single' ? `(${booking.frequency})` : ''}</div>
+                            <td className="px-4 py-3 text-sm font-medium">
+                                {booking.eventName}
                             </td>
-                            <td className="px-4 py-3 text-sm text-gray-500">
-                                {formatDate(booking.createdAt)}
+                            <td className="px-4 py-3 text-sm">
+                                {booking.seriesId ? (
+                                    <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
+                                        Series
+                                    </span>
+                                ) : (
+                                    <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">
+                                        Single
+                                    </span>
+                                )}
                             </td>
                             <td className="px-4 py-3 text-sm">
                                 <span className={`px-2 py-1 text-xs rounded-full font-medium
@@ -84,13 +125,13 @@ export default function AdminBookingTable({ bookings, onApprove, onReject }) {
                                     {booking.status === 'pending' && (
                                         <>
                                             <button
-                                                onClick={() => onApprove(booking.id)}
+                                                onClick={() => setApproveBooking(booking)}
                                                 className="bg-green-100 text-green-700 hover:bg-green-200 text-xs px-2 py-1 rounded"
                                             >
                                                 Approve
                                             </button>
                                             <button
-                                                onClick={() => onReject(booking.id)}
+                                                onClick={() => setApproveBooking(booking)}
                                                 className="bg-red-100 text-red-700 hover:bg-red-200 text-xs px-2 py-1 rounded"
                                             >
                                                 Reject
@@ -118,32 +159,32 @@ export default function AdminBookingTable({ bookings, onApprove, onReject }) {
             
             {/* Edit Booking Modal */}
             {editBooking && (
-                <EditBookingModal 
+                <EditSeriesBookingModal 
                     booking={editBooking} 
-                    rooms={Array.from(new Set(bookings.map(b => b.room)))} 
-                    onSave={(updatedBooking) => {
-                        // Update booking in parent component
-                        const updatedBookings = bookings.map(b => 
-                            b.id === updatedBooking.id ? updatedBooking : b
-                        );
-                        // Refresh the list by calling the parent's update function
-                        // This would ideally be passed as a prop like onBookingUpdated
+                    rooms={rooms}
+                    onClose={() => setEditBooking(null)}
+                    onUpdate={(updatedBooking) => {
+                        handleEdit(updatedBooking);
                         setEditBooking(null);
-                    }} 
-                    onClose={() => setEditBooking(null)} 
+                    }}
                 />
             )}
             
             {/* Delete Booking Modal */}
             {deleteBooking && (
-                <DeleteBookingModal 
+                <DeleteSeriesBookingModal 
                     booking={deleteBooking} 
-                    onDelete={() => {
-                        // Delete booking in parent component
-                        // This would ideally call a parent function like onDeleteBooking
-                        setDeleteBooking(null);
-                    }} 
-                    onClose={() => setDeleteBooking(null)} 
+                    onClose={() => setDeleteBooking(null)}
+                    onDelete={(deleteType) => handleDelete(deleteBooking.id, deleteType)}
+                />
+            )}
+            
+            {/* Approve/Reject Booking Modal */}
+            {approveBooking && (
+                <ApproveSeriesBookingModal 
+                    booking={approveBooking} 
+                    onClose={() => setApproveBooking(null)}
+                    onApproved={(action, approveType) => handleApproveReject(action, approveBooking.id, approveType)}
                 />
             )}
         </div>

@@ -1,0 +1,111 @@
+============================================== PROMPT 1 ====================================================
+
+Create a full-stack room booking web application with the following stack:
+Frontend: React + Tailwind CSS
+Backend: Node.js (Express)
+Database: MySQL (localhost:3306, user: root, password: P@55w0rd)
+
+Features:
+1. Authentication
+Login modal for all users (username, password).
+Role-based access (user, admin).
+Use JWT or session-based authentication.
+
+2. Pages
+
+Login Page: Secure modal login for all users.
+
+Home Page (All Users):
+
+Room booking form with:
+Room dropdown
+Default start date = today
+Optional end date (for multiple-day bookings)
+Time selection (30-minute steps from 6:00 AM–12:00 AM)
+Only available slots are selectable
+Frequency: single-use (default), daily, weekly, monthly
+Event name input
+Status defaults to "pending"
+Calendar View:
+One tab per room showing monthly calendar
+Only approved bookings shown
+Show event name, times, user
+Modal popup on click with full details and status
+My Bookings Page (Users):
+
+Filter by room and date
+Paginated table with columns: created date, room, times, event, status, approved on
+Users can edit/delete only their pending bookings
+Admin Page (Admins only):
+
+Filter bookings by user, room, date, status
+Paginated, sortable table of all bookings
+Actions: approve/reject/edit/delete bookings
+Recurring booking management: edit/delete individual or all in series
+Book on behalf of any user
+Admins can create users and assign roles
+Log all admin actions with timestamps
+Database Schema:
+User: id, username, name, password, role
+Booking: id, user, room, event, start_date/time, end_date/time, frequency, frequency_start/end, status
+Room: id, room, floor (2–5), pax
+Logs: id, timestamp, action
+Testing:
+Add seed data for:
+User: user / user / user / user
+Admin: admin / admin / admin / admin
+Rooms: Damien Hall / 1 / 100, Attic / 5 / 30
+
+Requirements:
+All tables must be paginated
+Input validation with helpful error messages
+Secure login and role-based routing
+Use environment variables for credentials in production
+Scaffold the project with this structure and implement basic functionality for each feature/page.
+
+============================================== PROMPT 2 ====================================================
+
+Add a repeating booking series feature in the room reservation system.
+
+Requirements:
+
+Frequency Options:
+- Default: "single"
+
+Allow all users to choose Frequency options:
+- Every x days
+- Every x weeks (with options to repeat on specific weekdays)
+- Every x months:
+- Repeat on yth of month (e.g., 15th)
+- Repeat on zth day (e.g., 2nd Tuesday)
+
+- Select specific dates
+  - Every x years:
+  - Repeat on current date
+  - Repeat on yth day of month
+
+- Select months to repeat
+
+- Set Duration:
+  - End after a specific number of times
+  - End on a particular date (max 2 years from current date)
+
+User Controls in "My Bookings":
+- Edit/delete options:
+  - Only this event
+  - This and future events
+  - All events in series
+
+Admin Controls:
+- Can approve or reject:
+  - Only this event
+  - This and future events
+  - All events in series
+
+- Can add/edit/delete repeating bookings on behalf of other users
+  - Only this event
+  - This and future events
+  - All events in series
+
+Calendar View:
+-  Every approved event in the same series must appear on the calendar.

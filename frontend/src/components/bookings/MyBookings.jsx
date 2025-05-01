@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import BookingTable from './BookingTable';
 import BookingFilter from './BookingFilter';
 import EditBookingModal from './EditBookingModal';
-import DeleteBookingModal from './DeleteBookingModal';
+import DeleteSeriesBookingModal from './DeleteSeriesBookingModal';
 import axios from 'axios';
+import { toast } from 'react-toastify';
 
 export default function MyBookings({ user, rooms, bookings, setBookings }) {
     const [filteredBookings, setFilteredBookings] = useState([]);
@@ -15,70 +16,75 @@ export default function MyBookings({ user, rooms, bookings, setBookings }) {
     const [editBooking, setEditBooking] = useState(null);
     const [deleteBooking, setDeleteBooking] = useState(null);
     
-    // Load user's bookings
-    useEffect(() => {
-        const fetchBookings = async () => {
-            try {
-                setLoading(true);
-                const token = localStorage.getItem('token');
-                
-                // Check that we have the actual ID, not username
-                console.log('User data:', user);
-                
-                if (!user.id) {
-                    console.error('User ID is missing, using local data');
-                    // Fall back to local data
-                    setFilteredBookings(bookings.filter(booking => booking.userId === user.id));
-                    setLoading(false);
-                    return;
-                }
-                
-                const response = await axios.get(
-                    `http://localhost:5000/api/bookings/user/${user.id}`,
-                    {
-                        headers: { 
-                            'Authorization': `Bearer ${token}`
-                        }
-                    }
-                );
-                
-                console.log('API Response:', response.data);
-                
-                // Format the data from backend to match frontend structure
-                const formattedBookings = response.data.map(booking => ({
-                    id: booking.id,
-                    userId: booking.user_id,
-                    userName: booking.user_name,
-                    room: booking.room,
-                    eventName: booking.event_name,
-                    startDate: booking.start_date,
-                    endDate: booking.end_date,
-                    startTime: booking.start_time,
-                    endTime: booking.end_time,
-                    frequency: booking.frequency,
-                    status: booking.status,
-                    createdAt: booking.created_at,
-                    approvedAt: booking.approved_at
-                }));
-                
-                setFilteredBookings(formattedBookings);
-                setBookings(prev => {
-                    // Merge existing bookings with new ones, avoiding duplicates by ID
-                    const existingIds = new Set(prev.map(b => b.id));
-                    const newBookings = formattedBookings.filter(b => !existingIds.has(b.id));
-                    return [...prev, ...newBookings];
-                });
-            } catch (error) {
-                console.error('Error fetching bookings:', error);
-                // Fall back to local data if API fails
-                setFilteredBookings(bookings.filter(booking => booking.userId === user.id));
-            } finally {
+    // Define fetchBookings as a memoized function with useCallback
+    const fetchBookings = useCallback(async () => {
+        try {
+            setLoading(true);
+            const token = localStorage.getItem('token');
+            
+            if (!user.id) {
+                console.error('User ID is missing, using local data');
+                const userBookings = bookings.filter(booking => booking.userId === user.id);
+                setFilteredBookings(userBookings);
                 setLoading(false);
+                return;
             }
-        };
-        
-        fetchBookings();
+            
+            const response = await axios.get(
+                `http://localhost:5000/api/bookings/user/${user.id}`,
+                {
+                    headers: { 
+                        'Authorization': `Bearer ${token}`
+                    }
+                }
+            );
+            
+            const formattedBookings = response.data.map(booking => ({
+                id: booking.id,
+                userId: booking.user_id,
+                userName: booking.user_name,
+                room: booking.room,
+                eventName: booking.event_name,
+                startDate: booking.start_date,
+                endDate: booking.end_date,
+                startTime: booking.start_time,
+                endTime: booking.end_time,
+                frequency: booking.frequency,
+                status: booking.status,
+                createdAt: booking.created_at,
+                approvedAt: booking.approved_at,
+                seriesId: booking.series_id
+            }));
+            
+            setFilteredBookings(formattedBookings);
+            setBookings(prev => {
+                // Merge existing bookings with new ones, avoiding duplicates by ID
+                const existingIds = new Set(prev.map(b => b.id));
+                const newBookings = formattedBookings.filter(b => !existingIds.has(b.id));
+                return [...prev, ...newBookings];
+            });
+            
+            // Reapply filters after refresh
+            if (selectedRoom || selectedDate) {
+                handleFilter(selectedRoom, selectedDate);
+            }
+            
+            return formattedBookings;
+        } catch (error) {
+            console.error('Error fetching bookings:', error);
+            // Fall back to local data if API fails
+            setFilteredBookings(bookings.filter(booking => booking.userId === user.id));
+            toast.error('Failed to refresh booking data');
+            return [];
+        } finally {
+            setLoading(false);
+        }
     }, [user.id, user.username]);
+    
+    // Load user's bookings on component mount
+    useEffect(() => {
+        fetchBookings();
+    }, [fetchBookings]);
     
     // Apply filters
     const handleFilter = (room, date) => {
@@ -93,7 +99,6 @@ export default function MyBookings({ user, rooms, bookings, setBookings }) {
         
         if (date) {
             filtered = filtered.filter(booking => {
-                // Check if the booking date range includes the selected date
                 const bookingStart = new Date(booking.startDate);
                 const bookingEnd = new Date(booking.endDate);
                 const filterDate = new Date(date);
@@ -138,43 +143,42 @@ export default function MyBookings({ user, rooms, bookings, setBookings }) {
                 }
             );
             
-            // Update local state
-            const updatedBookings = bookings.map(booking => 
-                booking.id === updatedBooking.id ? updatedBooking : booking
-            );
-            
-            setBookings(updatedBookings);
-            setFilteredBookings(prev => 
-                prev.map(booking => booking.id === updatedBooking.id ? updatedBooking : booking)
-            );
+            toast.success('Booking updated successfully');
             setEditBooking(null);
+            
+            // Refresh data after update
+            await fetchBookings();
+            
         } catch (error) {
             console.error('Error updating booking:', error);
-            alert('Failed to update booking. Please try again.');
+            toast.error('Failed to update booking');
         }
     };
     
     // Delete a booking
-    const handleDeleteBooking = async (bookingId) => {
+    const handleDeleteBooking = async (bookingId, deleteType) => {
         try {
+            setLoading(true);
             const token = localStorage.getItem('token');
-            await axios.delete(
-                `http://localhost:5000/api/bookings/${bookingId}`,
-                {
-                    headers: { 
-                        'Authorization': `Bearer ${token}`
-                    }
-                }
-            );
             
-            // Update local state
-            const updatedBookings = bookings.filter(booking => booking.id !== bookingId);
-            setBookings(updatedBookings);
-            setFilteredBookings(prev => prev.filter(booking => booking.id !== bookingId));
-            setDeleteBooking(null);
+            const url = deleteType 
+                ? `http://localhost:5000/api/bookings/series/${bookingId}?deleteType=${deleteType}`
+                : `http://localhost:5000/api/bookings/${bookingId}`;
+                
+            await axios.delete(url, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            // Refresh bookings after deletion
+            await fetchBookings();
+            toast.success('Booking deleted successfully');
         } catch (error) {
             console.error('Error deleting booking:', error);
-            alert('Failed to delete booking. Please try again.');
+            toast.error(error.response?.data?.message || 'Failed to delete booking');
+        } finally {
+            setLoading(false);
         }
     };
     
@@ -188,12 +192,13 @@ export default function MyBookings({ user, rooms, bookings, setBookings }) {
         <div>
             <h2 className="text-xl font-semibold mb-6 text-gray-800">My Bookings</h2>
             
-            {/* Filter form */}
+            {/* Filter form with refresh capability */}
             <BookingFilter 
                 rooms={rooms} 
                 onFilter={handleFilter} 
                 selectedRoom={selectedRoom}
                 selectedDate={selectedDate}
+                onRefresh={fetchBookings}
             />
             
             {/* Bookings table */}
@@ -261,10 +266,10 @@ export default function MyBookings({ user, rooms, bookings, setBookings }) {
             
             {/* Delete Booking Modal */}
             {deleteBooking && (
-                <DeleteBookingModal 
+                <DeleteSeriesBookingModal 
                     booking={deleteBooking} 
-                    onDelete={() => handleDeleteBooking(deleteBooking.id)} 
-                    onClose={() => setDeleteBooking(null)} 
+                    onClose={() => setDeleteBooking(null)}
+                    onDelete={(deleteType) => handleDeleteBooking(deleteBooking.id, deleteType)}
                 />
             )}
         </div>

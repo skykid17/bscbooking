@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import AdminBookingTable from './AdminBookingTable';
 import AdminFilter from './AdminFilter';
 import UserManagement from './UserManagement';
-import BookingForm from '../booking/BookingForm';
+import BookingForm from '../bookings/BookingForm';
 import CalendarView from '../calendar/CalendarView';
 import RoomManagement from './RoomManagement';
+import { toast } from 'react-toastify';
 
 export default function AdminDashboard({ user }) {
     const [activeTab, setActiveTab] = useState('bookings');
@@ -17,7 +18,11 @@ export default function AdminDashboard({ user }) {
     const [selectedRoom, setSelectedRoom] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage] = useState(10);
-    
+    const [userId, setUserId] = useState(null);
+    const [roomFilter, setRoomFilter] = useState(null);
+    const [dateFilter, setDateFilter] = useState(null);
+    const [statusFilter, setStatusFilter] = useState(null);
+
     // Fetch rooms
     useEffect(() => {
         const fetchRooms = async () => {
@@ -49,51 +54,63 @@ export default function AdminDashboard({ user }) {
         fetchRooms();
     }, []);
     
-    // Fetch all bookings
-    useEffect(() => {
-        const fetchBookings = async () => {
-            try {
-                setLoading(true);
-                const token = localStorage.getItem('token');
-                
-                const response = await axios.get(
-                    'http://localhost:5000/api/bookings',
-                    {
-                        headers: { 
-                            'Authorization': `Bearer ${token}`
-                        }
+    // Make fetchBookings memoized with useCallback
+    const fetchBookings = useCallback(async () => {
+        try {
+            setLoading(true);
+            const token = localStorage.getItem('token');
+            
+            const response = await axios.get(
+                'http://localhost:5000/api/bookings',
+                {
+                    headers: { 
+                        'Authorization': `Bearer ${token}`
                     }
-                );
-                
-                // Format the data from backend to match frontend structure
-                const formattedBookings = response.data.map(booking => ({
-                    id: booking.id,
-                    userId: booking.user_id,
-                    userName: booking.user_name,
-                    room: booking.room,
-                    eventName: booking.event_name,
-                    startDate: booking.start_date,
-                    endDate: booking.end_date,
-                    startTime: booking.start_time,
-                    endTime: booking.end_time,
-                    frequency: booking.frequency,
-                    status: booking.status,
-                    createdAt: booking.created_at,
-                    approvedAt: booking.approved_at,
-                    approvedBy: booking.approved_by
-                }));
-                
-                setBookings(formattedBookings);
+                }
+            );
+            
+            // Format the data from backend to match frontend structure
+            const formattedBookings = response.data.map(booking => ({
+                id: booking.id,
+                userId: booking.user_id,
+                userName: booking.user_name,
+                room: booking.room,
+                eventName: booking.event_name,
+                startDate: booking.start_date,
+                endDate: booking.end_date,
+                startTime: booking.start_time,
+                endTime: booking.end_time,
+                frequency: booking.frequency,
+                status: booking.status,
+                createdAt: booking.created_at,
+                approvedAt: booking.approved_at,
+                approvedBy: booking.approved_by,
+                seriesId: booking.series_id
+            }));
+            
+            setBookings(formattedBookings);
+            
+            // Re-apply filters if any are active
+            if (userId || roomFilter || dateFilter || statusFilter) {
+                handleFilter(userId, roomFilter, dateFilter, statusFilter);
+            } else {
                 setFilteredBookings(formattedBookings);
-            } catch (error) {
-                console.error('Error fetching bookings:', error);
-            } finally {
-                setLoading(false);
             }
-        };
-        
+            
+            return formattedBookings;
+        } catch (error) {
+            console.error('Error fetching bookings:', error);
+            toast.error('Failed to refresh booking data');
+            return [];
+        } finally {
+            setLoading(false);
+        }
+    }, [userId, roomFilter, dateFilter, statusFilter]);
+
+    // Use the named function in useEffect
+    useEffect(() => {
         fetchBookings();
-    }, []);
+    }, [fetchBookings]);
     
     // Fetch all users
     useEffect(() => {
@@ -165,15 +182,10 @@ export default function AdminDashboard({ user }) {
                 }
             );
             
-            // Update booking status in state
-            const updatedBookings = bookings.map(booking => 
-                booking.id === bookingId ? { ...booking, status: 'approved', approvedAt: new Date().toISOString() } : booking
-            );
+            toast.success('Booking approved successfully');
             
-            setBookings(updatedBookings);
-            setFilteredBookings(prev => 
-                prev.map(booking => booking.id === bookingId ? { ...booking, status: 'approved', approvedAt: new Date().toISOString() } : booking)
-            );
+            // Refresh data instead of manual state updates
+            await fetchBookings();
         } catch (error) {
             console.error('Error approving booking:', error);
             alert('Failed to approve booking. Please try again.');
@@ -193,24 +205,55 @@ export default function AdminDashboard({ user }) {
                 }
             );
             
-            // Update booking status in state
-            const updatedBookings = bookings.map(booking => 
-                booking.id === bookingId ? { ...booking, status: 'rejected', approvedAt: new Date().toISOString() } : booking
-            );
+            toast.success('Booking rejected successfully');
             
-            setBookings(updatedBookings);
-            setFilteredBookings(prev => 
-                prev.map(booking => booking.id === bookingId ? { ...booking, status: 'rejected', approvedAt: new Date().toISOString() } : booking)
-            );
+            // Refresh data instead of manual state updates
+            await fetchBookings();
         } catch (error) {
             console.error('Error rejecting booking:', error);
             alert('Failed to reject booking. Please try again.');
         }
     };
     
+    const handleDeleteBooking = async (bookingId, deleteType) => {
+        try {
+            const token = localStorage.getItem('token');
+            
+            // Set the appropriate URL based on deleteType
+            const url = deleteType 
+                ? `http://localhost:5000/api/bookings/series/${bookingId}?deleteType=${deleteType}`
+                : `http://localhost:5000/api/bookings/${bookingId}`;
+                
+            await axios.delete(url, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            toast.success('Booking deleted successfully');
+            
+            // Refresh data instead of manual state updates
+            await fetchBookings();
+        } catch (error) {
+            console.error('Error deleting booking:', error);
+            toast.error(error.response?.data?.message || 'Failed to delete booking');
+        }
+    };
+    
     // Handle a new booking created from the form
-    const handleBookingCreated = (newBooking) => {
+    const handleBookingCreated = async (newBooking) => {
         setBookings(prevBookings => [...prevBookings, newBooking]);
+        
+        // Show success toast notification
+        toast.success(
+            newBooking.status === 'approved' 
+                ? 'Booking created successfully' 
+                : 'Booking submitted for approval'
+        );
+        
+        // Refresh data to ensure consistency
+        await fetchBookings();
+        
         setActiveTab('bookings'); // Switch to bookings tab to see the new booking
     };
     
@@ -263,7 +306,8 @@ export default function AdminDashboard({ user }) {
                     <BookingForm 
                         user={user} 
                         rooms={rooms} 
-                        onBookingCreated={handleBookingCreated} 
+                        onBookingCreated={handleBookingCreated}
+                        onRefresh={fetchBookings} 
                     />
                 )}
                 
@@ -294,6 +338,7 @@ export default function AdminDashboard({ user }) {
                             users={users}
                             rooms={rooms}
                             onFilter={handleFilter} 
+                            onRefresh={fetchBookings}
                         />
                         
                         {/* Bookings table */}
@@ -311,6 +356,9 @@ export default function AdminDashboard({ user }) {
                                     bookings={currentBookings} 
                                     onApprove={handleApproveBooking}
                                     onReject={handleRejectBooking}
+                                    onDelete={handleDeleteBooking}
+                                    onRefresh={fetchBookings}
+                                    rooms={rooms}
                                 />
                                 
                                 {/* Pagination */}

@@ -8,7 +8,11 @@ const {
     updateBooking, 
     deleteBooking,
     approveBooking,
-    rejectBooking
+    rejectBooking,
+    updateSeriesBooking,
+    deleteSeriesBooking,
+    approveSeriesBooking,
+    rejectSeriesBooking
 } = require('../controllers/bookingController');
 const { authenticate, adminOnly } = require('../middleware/authMiddleware');
 
@@ -26,5 +30,11 @@ router.delete('/:id', deleteBooking);
 router.get('/', adminOnly, getBookings);
 router.put('/:id/approve', adminOnly, approveBooking);
 router.put('/:id/reject', adminOnly, rejectBooking);
+
+// Series booking routes - Fixed paths
+router.put('/series/:id', updateSeriesBooking);
+router.delete('/series/:id', deleteSeriesBooking);
+router.put('/series/:id/approve', adminOnly, approveSeriesBooking);
+router.put('/series/:id/reject', adminOnly, rejectSeriesBooking);
 
 module.exports = router;

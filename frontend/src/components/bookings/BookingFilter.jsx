@@ -1,9 +1,12 @@
 import { useState } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faRotateRight } from '@fortawesome/free-solid-svg-icons';
 
 // Define the component function first
-function BookingFilter({ rooms, onFilter, selectedRoom, selectedDate }) {
+function BookingFilter({ rooms, onFilter, selectedRoom, selectedDate, onRefresh }) {
     const [room, setRoom] = useState(selectedRoom || '');
     const [date, setDate] = useState(selectedDate || '');
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -14,6 +17,31 @@ function BookingFilter({ rooms, onFilter, selectedRoom, selectedDate }) {
         setRoom('');
         setDate('');
         onFilter('', '');
+    };
+    
+    const handleRefresh = async () => {
+        if (typeof onRefresh !== 'function') {
+            console.error('onRefresh prop is not a function');
+            return;
+        }
+        
+        setIsRefreshing(true);
+        
+        try {
+            // Call the refresh function from the parent
+            await onRefresh();
+            
+            // Reapply current filters after refresh
+            if (room || date) {
+                onFilter(room, date);
+            }
+        } catch (error) {
+            console.error('Error refreshing data:', error);
+        } finally {
+            setTimeout(() => {
+                setIsRefreshing(false);
+            }, 500); // Short delay for better UX
+        }
     };
 
     return (
@@ -58,11 +86,18 @@ function BookingFilter({ rooms, onFilter, selectedRoom, selectedDate }) {
                     >
                         Reset
                     </button>
+                    <button 
+                        type="button"
+                        onClick={handleRefresh} 
+                        className={`refresh-btn p-2 rounded bg-gray-200 hover:bg-gray-300 focus:outline-none ${isRefreshing ? 'animate-spin' : ''}`}
+                        disabled={isRefreshing}
+                    >
+                        <FontAwesomeIcon icon={faRotateRight} />
+                    </button>
                 </div>
             </form>
         </div>
     );
 }
 
-// Export the component separately
 export default BookingFilter;

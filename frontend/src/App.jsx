@@ -4,6 +4,7 @@ import RegisterPage from './components/auth/RegisterPage';
 import Dashboard from './components/dashboard/Dashboard';
 import AdminDashboard from './components/admin/AdminDashboard';
 import Layout from './components/layout/Layout';
+import { ToastContainer } from 'react-toastify';
 
 function App() {
     // User state with localStorage persistence
@@ -49,6 +50,7 @@ function App() {
                     <Dashboard user={user} />
                 )
             )}
+            <ToastContainer position="top-right" autoClose={5000} hideProgressBar={false} newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover />
         </Layout>
     );
 }
