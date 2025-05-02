@@ -169,26 +169,28 @@ export default function AdminDashboard({ user }) {
     };
     
     // Handle booking actions
-    const handleApproveBooking = async (bookingId) => {
+    const handleApproveBooking = async (bookingId, approveType) => {
         try {
             const token = localStorage.getItem('token');
-            await axios.put(
-                `http://localhost:5000/api/bookings/${bookingId}/approve`,
-                {},
-                {
-                    headers: { 
-                        'Authorization': `Bearer ${token}`
-                    }
-                }
-            );
             
+            const url = approveType 
+                ? `http://localhost:5000/api/bookings/series/${bookingId}/approve?approveType=${approveType}`
+                : `http://localhost:5000/api/bookings/${bookingId}/approve`;
+                
+            await axios.put(url, {}, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            // Standardized toast - only show here, not in modal
             toast.success('Booking approved successfully');
             
-            // Refresh data instead of manual state updates
+            // Refresh data
             await fetchBookings();
         } catch (error) {
             console.error('Error approving booking:', error);
-            alert('Failed to approve booking. Please try again.');
+            toast.error('Failed to approve booking');
         }
     };
     

@@ -17,19 +17,14 @@ export default function DeleteSeriesBookingModal({ booking, onClose, onDelete })
         try {
             setIsLoading(true);
             setError('');
-
-            onDelete(deleteType);
-            onClose();
             
+            // Don't make API call or show toast here
+            // Just notify parent component
+            onDelete(deleteType);
+            onClose(); // Close modal
         } catch (err) {
-            console.error('Delete error:', err);
-            if (err.response) {
-                setError(err.response?.data?.message || `Error ${err.response.status}: Failed to delete booking.`);
-            } else if (err.request) {
-                setError('Server did not respond. Please check if the backend is running.');
-            } else {
-                setError('Failed to send request: ' + err.message);
-            }
+            setError('An error occurred');
+            console.error('Error:', err);
         } finally {
             setIsLoading(false);
         }

@@ -88,8 +88,8 @@ export default function EditBookingModal({ booking, rooms, onSave, onClose }) {
                                 onChange={(e) => setRoom(e.target.value)}
                                 required
                             >
-                                {rooms.map(roomOption => (
-                                    <option key={roomOption} value={roomOption}>{roomOption}</option>
+                                {rooms.map(r => (
+                                    <option key={r} value={r}>{r}</option>
                                 ))}
                             </select>
                         </div>

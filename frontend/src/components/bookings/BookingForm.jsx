@@ -205,79 +205,40 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
     
     const handleSubmit = async (e) => {
         e.preventDefault();
+        
+        // Clear previous messages
         setError('');
         setSuccess('');
         
         // Validation
-        if (!room || !startDate || !startTime || !endTime || !eventName) {
-            setError('Please fill in all required fields.');
-            return;
-        }
-        
-        if (isMultipleDays && new Date(endDate) < new Date(startDate)) {
-            setError('End date cannot be before start date.');
-            return;
-        }
-        
         if (startDate === endDate && startTime >= endTime) {
-            setError('End time must be after start time.');
+            setError('End time must be after start time');
             return;
         }
-        
-        // Frequency-specific validations
-        if (frequency === 'weekly' && !Object.values(weekDays).some(day => day === true)) {
-            setError('Please select at least one day of the week for weekly repeating.');
-            return;
-        }
-        
-        if (frequency === 'yearly' && !Object.values(selectedMonths).some(month => month === true)) {
-            setError('Please select at least one month for yearly repeating.');
-            return;
-        }
-        
-        // End condition validations
-        if (endCondition === 'after' && (!occurrences || occurrences < 1)) {
-            setError('Please enter a valid number of occurrences.');
-            return;
-        }
-        
-        if (endCondition === 'on-date') {
-            const endOnDateObj = new Date(endOnDate);
-            const maxDate = new Date(today);
-            maxDate.setFullYear(maxDate.getFullYear() + 2);
-            
-            if (endOnDateObj < today) {
-                setError('End date cannot be in the past.');
-                return;
-            }
-            
-            if (endOnDateObj > maxDate) {
-                setError('End date cannot be more than 2 years from now.');
-                return;
-            }
-        }
-        
-        // If admin is booking on behalf of someone else, use that user's details
-        const bookingUserId = user.role === 'admin' ? selectedUserId : user.id;
-        const bookingUserName = user.role === 'admin' ? selectedUserName : user.name;
-        
-        const repeatConfig = prepareRepeatConfig();
-        
-        const bookingData = {
-            room, // This should now be just the room name string
-            startDate,
-            endDate: isMultipleDays ? endDate : startDate,
-            startTime,
-            endTime,
-            eventName,
-            frequency,
-            userId: bookingUserId,
-            userName: bookingUserName,
-            repeatConfig: repeatConfig
-        };
         
         try {
             setIsLoading(true);
+            
+            // Prepare booking data
+            const bookingUserId = selectedUserId || user.id;
+            const bookingUserName = selectedUserName || user.name;
+            
+            // Prepare repeat configuration if needed
+            const repeatConfig = frequency !== 'single' ? prepareRepeatConfig() : null;
+            
+            // Construct booking data
+            const bookingData = {
+                room,
+                startDate,
+                endDate: isMultipleDays ? endDate : startDate,
+                startTime,
+                endTime,
+                eventName,
+                frequency,
+                userId: bookingUserId,
+                userName: bookingUserName,
+                repeatConfig
+            };
             
             // Log the request details for debugging
             console.log('Sending booking request:', bookingData);
@@ -296,29 +257,21 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
             
             console.log('Server response:', response.data);
             
-            // Add created booking to state
+            // Get the created booking from the response
             const createdBooking = response.data.booking;
-            onBookingCreated(createdBooking);
             
-            // Show different success message based on who created the booking
-            if (user.role === 'admin' && bookingUserId !== user.id) {
-                setSuccess(`Booking for ${bookingUserName} has been ${createdBooking.status === 'approved' ? 'created' : 'submitted for approval'}.`);
-            } else {
-                setSuccess('Your booking request has been submitted and is pending approval.');
+            // Pass the new booking to parent
+            if (typeof onBookingCreated === 'function') {
+                onBookingCreated(createdBooking);
             }
             
-            // Reset form
+            // Show success message in the form
+            setSuccess(`Booking ${createdBooking.status === 'approved' ? 'created' : 'submitted for approval'}.`);
             resetForm();
             
         } catch (err) {
             console.error('Booking error:', err);
-            if (err.response) {
-                setError(err.response?.data?.message || `Error ${err.response.status}: Failed to create booking.`);
-            } else if (err.request) {
-                setError('Server did not respond. Please check if the backend is running.');
-            } else {
-                setError('Failed to send request: ' + err.message);
-            }
+            setError(err.response?.data?.message || 'Error creating booking');
         } finally {
             setIsLoading(false);
         }

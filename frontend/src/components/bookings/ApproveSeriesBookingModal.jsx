@@ -14,6 +14,21 @@ export default function ApproveSeriesBookingModal({ booking, onClose, onApproved
         setIsSeriesBooking(booking?.seriesId ? true : false);
     }, [booking]);
     
+    const handleApproveReject = (action) => {
+        try {
+            setIsLoading(true);
+            
+            // Don't show toast here, just notify parent
+            onApproved(action, approveType);
+            onClose();
+        } catch (err) {
+            setError('An error occurred');
+            console.error('Error:', err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const handleAction = async () => {
         try {
             setIsLoading(true);
@@ -30,7 +45,6 @@ export default function ApproveSeriesBookingModal({ booking, onClose, onApproved
                 }
             });
             
-            toast.success(`Booking ${action === 'approve' ? 'approved' : 'rejected'} successfully`);
             onApproved(action, approveType); // Notify parent component
             onClose(); // Close the modal
             

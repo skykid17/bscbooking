@@ -670,8 +670,6 @@ exports.approveBooking = async (req, res) => {
             `INSERT INTO logs (id, timestamp, action) VALUES (?, NOW(), ?)`,
             [logId, action]
         );
-        
-        res.json({ message: "Booking approved successfully" });
     } catch (error) {
         console.error("Error approving booking:", error);
         res.status(500).json({ message: "Server error while approving booking" });
@@ -724,7 +722,7 @@ exports.approveSeriesBooking = async (req, res) => {
             [logId, action]
         );
         
-        res.json({ message: "Booking approved successfully" });
+        res.json({ message: "Bookings approved successfully" });
     } catch (error) {
         console.error("Error approving booking:", error);
         res.status(500).json({ message: "Server error while approving booking" });

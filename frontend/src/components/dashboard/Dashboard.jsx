@@ -118,6 +118,11 @@ export default function Dashboard({ user }) {
                         rooms={rooms} 
                         onBookingCreated={(booking) => {
                             setBookings(prev => [...prev, booking]);
+                            toast.success(
+                                booking.status === 'approved' 
+                                    ? 'Booking created successfully' 
+                                    : 'Booking submitted for approval'
+                            );
                         }} 
                         onRefresh={fetchBookings}
                     />

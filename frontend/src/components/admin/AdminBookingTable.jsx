@@ -49,6 +49,7 @@ export default function AdminBookingTable({ bookings, onApprove, onReject, onEdi
             console.error(`on${action.charAt(0).toUpperCase() + action.slice(1)} prop is not a function`);
         }
         setApproveBooking(null);
+        // No toast here - let parent component handle it
     };
 
     const refreshData = () => {

@@ -56,8 +56,8 @@ function BookingFilter({ rooms, onFilter, selectedRoom, selectedDate, onRefresh 
                         onChange={(e) => setRoom(e.target.value)}
                     >
                         <option value="">All Rooms</option>
-                        {rooms.map(roomOption => (
-                            <option key={roomOption} value={roomOption}>{roomOption}</option>
+                        {rooms.map(r => (
+                            <option key={r.id} value={r.name}>{r.name}</option>
                         ))}
                     </select>
                 </div>
