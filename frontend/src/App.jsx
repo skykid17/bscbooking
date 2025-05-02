@@ -1,18 +1,69 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import { setupAuthInterceptors } from './utils/authUtils';
+import LoginPage from './components/auth/LoginPage';
+import RegisterPage from './components/auth/RegisterPage';
+import Dashboard from './components/dashboard/Dashboard';
+import AdminDashboard from './components/admin/AdminDashboard';
+import Layout from './components/layout/Layout';
+
+// Create a wrapper component to access navigate inside useEffect
+function AuthInterceptorSetup() {
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    setupAuthInterceptors(navigate);
+  }, [navigate]);
+  
+  return null;
+}
 
 function App() {
+  const [user, setUser] = useState(() => {
+    const savedUser = localStorage.getItem('user');
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
+  
+  // Handle login success
+  const handleLoginSuccess = (userData) => {
+    setUser(userData);
+  };
+  
+  // Handle logout
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setUser(null);
+  };
+
   return (
     <BrowserRouter>
       <AuthInterceptorSetup />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/admin" element={<Admin />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+      <ToastContainer position="top-right" autoClose={5000} hideProgressBar={false} newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover />
+      <Layout user={user} onLogout={handleLogout}>
+        <div className="min-h-screen bg-gray-100 pt-10">
+          <div className="container mx-auto px-4">
+            <Routes>
+              <Route path="/login" element={
+                user ? <Navigate to="/" /> : <LoginPage onLoginSuccess={handleLoginSuccess} />
+              } />
+              <Route path="/register" element={
+                user ? <Navigate to="/" /> : <RegisterPage onRegisterSuccess={() => setAuthPage('login')} onLoginClick={() => setAuthPage('login')} />
+              } />
+              <Route path="/" element={
+                user ? (
+                  user.role === 'admin' ? 
+                    <AdminDashboard user={user} /> : 
+                    <Dashboard user={user} />
+                ) : <Navigate to="/login" />
+              } />
+              {/* Other routes */}
+            </Routes>
+          </div>
+        </div>
+      </Layout>
     </BrowserRouter>
   );
 }
