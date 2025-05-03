@@ -8,7 +8,6 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
     
     const [room, setRoom] = useState(rooms.length > 0 ? rooms[0].name : '');
     const [startDate, setStartDate] = useState(formattedToday);
-    const [isMultipleDays, setIsMultipleDays] = useState(false);
     const [endDate, setEndDate] = useState(formattedToday);
     const [startTime, setStartTime] = useState('09:00');
     const [endTime, setEndTime] = useState('10:00');
@@ -216,23 +215,25 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
             return;
         }
         
+       
         try {
             setIsLoading(true);
             
             // Prepare booking data
             const bookingUserId = selectedUserId || user.id;
             const bookingUserName = selectedUserName || user.name;
-            
-            // Prepare repeat configuration if needed
             const repeatConfig = frequency !== 'single' ? prepareRepeatConfig() : null;
             
-            // Construct booking data
+            const startDateTime = `${startDate} ${startTime}`;
+            const endDateTime = `${endDate} ${endTime}`;
+        
+            console.log(`Start DateTime: ${startDateTime}, End DateTime: ${endDateTime}`);
+            // Concatenate date and time for backend
+           
             const bookingData = {
                 room,
-                startDate,
-                endDate: isMultipleDays ? endDate : startDate,
-                startTime,
-                endTime,
+                startDateTime,
+                endDateTime,
                 eventName,
                 frequency,
                 userId: bookingUserId,
@@ -282,7 +283,6 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
         setEventName('');
         setStartTime('09:00');
         setEndTime('10:00');
-        setIsMultipleDays(false);
         setEndDate(formattedToday);
         setFrequency('single');
         setRepeatInterval(1);
@@ -644,38 +644,26 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
                         type="date"
                         className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
+                        onChange={(e) => {
+                            setStartDate(e.target.value);
+                            if (endDate < e.target.value) setEndDate(e.target.value);
+                        }}
                         min={formattedToday}
                         required
                     />
                 </div>
                 
-                <div className="flex items-center">
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">End Date *</label>
                     <input
-                        type="checkbox"
-                        id="multipleDays"
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        checked={isMultipleDays}
-                        onChange={(e) => setIsMultipleDays(e.target.checked)}
+                        type="date"
+                        className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        min={startDate}
+                        required
                     />
-                    <label htmlFor="multipleDays" className="ml-2 block text-sm text-gray-700">
-                        Multiple Consecutive Days
-                    </label>
                 </div>
-                
-                {isMultipleDays && (
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">End Date *</label>
-                        <input
-                            type="date"
-                            className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            value={endDate}
-                            onChange={(e) => setEndDate(e.target.value)}
-                            min={startDate}
-                            required={isMultipleDays}
-                        />
-                    </div>
-                )}
                 
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Start Time *</label>

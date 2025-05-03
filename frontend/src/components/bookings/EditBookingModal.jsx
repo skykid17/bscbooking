@@ -45,13 +45,14 @@ export default function EditBookingModal({ booking, rooms, onSave, onClose }) {
             return;
         }
         
+        const start_datetime = `${startDate} ${startTime}`;
+        const end_datetime = `${isMultipleDays ? endDate : startDate} ${endTime}`;
+
         const updatedBooking = {
             ...booking,
             room,
-            startDate,
-            endDate: isMultipleDays ? endDate : startDate,
-            startTime,
-            endTime,
+            start_datetime,
+            end_datetime,
             eventName,
             frequency
         };

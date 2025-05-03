@@ -130,10 +130,8 @@ export default function MyBookings({ user, rooms, bookings, setBookings }) {
                 {
                     room: updatedBooking.room,
                     eventName: updatedBooking.eventName,
-                    startDate: updatedBooking.startDate,
-                    startTime: updatedBooking.startTime,
-                    endDate: updatedBooking.endDate,
-                    endTime: updatedBooking.endTime,
+                    start_datetime: updatedBooking.start_datetime,
+                    end_datetime: updatedBooking.end_datetime,
                     frequency: updatedBooking.frequency
                 },
                 {

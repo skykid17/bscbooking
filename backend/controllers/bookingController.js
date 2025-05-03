@@ -5,10 +5,8 @@ const { v4: uuidv4 } = require('uuid');
 exports.createBooking = async (req, res) => {
     const { 
         room, 
-        startDate, 
-        endDate, 
-        startTime, 
-        endTime, 
+        startDateTime, 
+        endDateTime,
         eventName, 
         frequency, 
         userId, 
@@ -24,7 +22,8 @@ exports.createBooking = async (req, res) => {
         return res.status(403).json({ message: "You can only create bookings for yourself" });
     }
 
-    if (!room || !startDate || !startTime || !endTime || !eventName || !userId) {
+    if (!room || !startDateTime || !endDateTime || !eventName || !userId) {
+        console.log("Missing required fields:", { room, startDateTime, endDateTime, eventName, userId });
         return res.status(400).json({ message: "Required fields are missing" });
     }
 
@@ -38,11 +37,11 @@ exports.createBooking = async (req, res) => {
         const [conflicts] = await pool.query(
             `SELECT * FROM bookings 
             WHERE room = ? AND status != 'rejected'
-            AND ((start_date = ? AND end_date = ? AND 
-                ((start_time <= ? AND end_time > ?) OR 
-                (start_time < ? AND end_time >= ?) OR 
-                (start_time >= ? AND end_time <= ?))))`,
-            [room, startDate, endDate, startTime, startTime, endTime, endTime, startTime, endTime]
+            AND NOT (
+                end_datetime <= ? OR 
+                start_datetime >= ?
+            )`,
+            [room, startDateTime, endDateTime]
         );
 
         if (conflicts.length > 0) {
@@ -79,22 +78,20 @@ exports.createBooking = async (req, res) => {
             const id = uuidv4();
             await pool.query(
                 `INSERT INTO bookings 
-                (id, user_id, user_name, room, event_name, start_date, start_time, end_date, end_time, 
+                (id, user_id, user_name, room, event_name, start_datetime, end_datetime, 
                  frequency, created_at, status) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [id, userId, userName, room, eventName, startDate, startTime, endDate, endTime, 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [id, userId, userName, room, eventName, startDateTime, endDateTime, 
                  frequency, createdAt, status]
-            );
+            );            
             bookings.push({
                 id,
                 userId,
                 userName,
                 room,
                 eventName,
-                startDate,
-                startTime,
-                endDate,
-                endTime,
+                startDateTime,
+                endDateTime,
                 frequency,
                 createdAt,
                 status
@@ -102,40 +99,41 @@ exports.createBooking = async (req, res) => {
         } else {
             // Generate all occurrences based on the repeat configuration
             const occurrences = generateOccurrences(
-                startDate, endDate, startTime, endTime, 
-                repeatConfig.repeatType, repeatConfig.repeatInterval, 
+                startDateTime, endDateTime, repeatConfig.repeatType, repeatConfig.repeatInterval, 
                 repeatConfig.repeatOn, repeatConfig.endsAfter, repeatConfig.endsOn
             );
             
+            const approvedBy = isAdmin ? req.user.id : null;
+
             for (const occurrence of occurrences) {
                 const id = uuidv4();
-                // Insert each occurrence with the same series ID
                 await pool.query(
                     `INSERT INTO bookings 
-                    (id, user_id, user_name, room, event_name, start_date, start_time, 
-                    end_date, end_time, series_id, frequency, created_at, status) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)`,
+                    (id, user_id, user_name, room, event_name, start_datetime, end_datetime, series_id, frequency, created_at, approved_at, approved_by, status) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), ?, ?)`,
                     [
-                        id, userId, userName, room, eventName, 
-                        occurrence.startDate, occurrence.startTime, 
-                        occurrence.endDate, occurrence.endTime, 
-                        seriesId, frequency, status
+                        id, userId, userName, room, eventName,
+                        occurrence.startDateTime, occurrence.endDateTime,
+                        seriesId, frequency,
+                        approvedBy, status
                     ]
                 );
-                
+                res.status(201).json({ 
+                    message: "start datetime is", startDateTime
+                });
                 bookings.push({
                     id,
                     userId,
                     userName,
                     room,
                     eventName,
-                    startDate: occurrence.startDate,
-                    startTime: occurrence.startTime,
-                    endDate: occurrence.endDate,
-                    endTime: occurrence.endTime,
+                    startDateTime: occurrence.startDateTime,
+                    endDateTime: occurrence.endDateTime,
                     seriesId,
                     frequency,
                     createdAt: new Date().toISOString(),
+                    approvedAt: isAdmin ? new Date().toISOString() : null,
+                    approvedBy: approvedBy,
                     status
                 });
             }
@@ -163,31 +161,36 @@ exports.createBooking = async (req, res) => {
 };
 
 // Helper function to generate all occurrences for a repeating booking
-function generateOccurrences(startDate, endDate, startTime, endTime, repeatType, interval, repeatOn, endsAfter, endsOn) {
+function generateOccurrences(startDateTime, endDateTime, repeatType, interval, repeatOn, endsAfter, endsOn) {
     const occurrences = [];
-    let currentDate = new Date(startDate);
-    const eventEndDate = new Date(endDate);
-    const daysDifference = (eventEndDate - currentDate) / (1000 * 60 * 60 * 24);
+    let currentStart = new Date(startDateTime);
+    let currentEnd = new Date(endDateTime);
     
     let occurrenceCount = 0;
-    const maxDate = endsOn ? new Date(endsOn) : null;
-    
-    while ((!endsAfter || occurrenceCount < endsAfter) && (!maxDate || currentDate <= maxDate)) {
-        // Check if this occurrence should be included based on repeatOn rules
-        if (shouldIncludeOccurrence(currentDate, repeatType, repeatOn)) {
+    const maxEndDate = endsOn ? new Date(endsOn) : null;
+
+    while ((!endsAfter || occurrenceCount < endsAfter) &&
+           (!maxEndDate || currentStart <= maxEndDate)) {
+
+        if (shouldIncludeOccurrence(currentStart, repeatType, repeatOn)) {
             occurrences.push({
-                startDate: formatDate(currentDate),
-                endDate: formatDate(addDays(currentDate, daysDifference)),
-                startTime,
-                endTime
+
+                //CHECK ERROR HERE!!
+                startDateTime: currentStart.toISOString(),
+                endDateTime: currentEnd.toISOString()
             });
             occurrenceCount++;
         }
-        
-        // Advance to the next potential occurrence
-        currentDate = advanceDate(currentDate, repeatType, interval);
+
+        // Move both start and end by the interval
+        const newStart = advanceDate(currentStart, repeatType, interval);
+        const durationMs = currentEnd - currentStart;
+        const newEnd = new Date(newStart.getTime() + durationMs);
+
+        currentStart = newStart;
+        currentEnd = newEnd;
     }
-    
+
     return occurrences;
 }
 
@@ -279,7 +282,6 @@ function addDays(date, days) {
 // Get all bookings (admin only)
 exports.getBookings = async (req, res) => {
     try {
-        // Apply filters if provided
         const { user, room, date, status } = req.query;
         let query = 'SELECT * FROM bookings';
         let conditions = [];
@@ -289,17 +291,21 @@ exports.getBookings = async (req, res) => {
             conditions.push('user_id = ?');
             params.push(user);
         }
-        
+
         if (room) {
             conditions.push('room = ?');
             params.push(room);
         }
-        
+
         if (date) {
-            conditions.push('(start_date <= ? AND end_date >= ?)');
-            params.push(date, date);
+            // Ensure date is treated as a full-day range
+            const dayStart = new Date(date + 'T00:00:00').toISOString();
+            const dayEnd = new Date(date + 'T23:59:59.999Z').toISOString();
+
+            conditions.push('start_datetime <= ? AND end_datetime >= ?');
+            params.push(dayEnd, dayStart);
         }
-        
+
         if (status) {
             conditions.push('status = ?');
             params.push(status);
@@ -312,7 +318,7 @@ exports.getBookings = async (req, res) => {
         query += ' ORDER BY created_at DESC';
 
         const [bookings] = await pool.query(query, params);
-        
+
         res.json(bookings);
     } catch (error) {
         console.error("Error fetching bookings:", error);
@@ -369,10 +375,8 @@ exports.updateBooking = async (req, res) => {
     const { id } = req.params;
     const { 
         room, 
-        startDate, 
-        endDate, 
-        startTime, 
-        endTime, 
+        start_datetime, 
+        end_datetime, 
         eventName, 
         frequency 
     } = req.body;
@@ -399,29 +403,25 @@ exports.updateBooking = async (req, res) => {
         // Check for time conflicts (excluding this booking)
         const [conflicts] = await pool.query(
             `SELECT * FROM bookings 
-            WHERE name = ? AND id != ? AND status != 'rejected'
-            AND ((start_date = ? AND end_date = ? AND 
-                ((start_time <= ? AND end_time > ?) OR 
-                (start_time < ? AND end_time >= ?) OR 
-                (start_time >= ? AND end_time <= ?))))`,
-            [room, id, startDate, endDate, startTime, startTime, endTime, endTime, startTime, endTime]
+             WHERE room = ? AND id != ? AND status != 'rejected'
+             AND NOT (end_datetime <= ? OR start_datetime >= ?)`,
+            [room, id, start_datetime, end_datetime]
         );
 
         if (conflicts.length > 0) {
             return res.status(409).json({ message: "This time slot conflicts with an existing booking" });
         }
 
+        // Update the booking with new values
         await pool.query(
             `UPDATE bookings SET
              room = ?,
              event_name = ?,
-             start_date = ?,
-             start_time = ?,
-             end_date = ?,
-             end_time = ?,
+             start_datetime = ?,
+             end_datetime = ?,
              frequency = ?
              WHERE id = ?`,
-            [room, eventName, startDate, startTime, endDate, endTime, frequency, id]
+            [room, eventName, start_datetime, end_datetime, frequency, id]
         );
 
         // Log admin updates
@@ -445,7 +445,7 @@ exports.updateBooking = async (req, res) => {
 exports.updateSeriesBooking = async (req, res) => {
     const { id } = req.params;
     const { 
-        room, startDate, endDate, startTime, endTime, eventName, frequency,
+        room, start_datetime, end_datetime, eventName, frequency,
         updateType // 'this', 'future', or 'all'
     } = req.body;
 
@@ -473,17 +473,17 @@ exports.updateSeriesBooking = async (req, res) => {
             switch (updateType) {
                 case 'this':
                     // Update only this specific booking
-                    await updateSingleBooking(id, room, startDate, endDate, startTime, endTime, eventName, frequency);
+                    await updateSingleBooking(id, room, startDateTime, endDateTime, eventName, frequency);
                     break;
                     
                 case 'future':
                     // Update this and all future bookings in the series
-                    await updateFutureBookings(booking, room, startDate, endDate, startTime, endTime, eventName, frequency);
+                    await updateFutureBookings(booking, room, startDateTime, endDateTime, eventName, frequency);
                     break;
                     
                 case 'all':
                     // Update all bookings in the series
-                    await updateAllSeriesBookings(booking.series_id, room, startDate, endDate, startTime, endTime, eventName, frequency);
+                    await updateAllSeriesBookings(booking.series_id, room, startDateTime, endDateTime, eventName, frequency);
                     break;
                     
                 default:
@@ -491,7 +491,7 @@ exports.updateSeriesBooking = async (req, res) => {
             }
         } else {
             // Single booking or no updateType specified
-            await updateSingleBooking(id, room, startDate, endDate, startTime, endTime, eventName, frequency);
+            await updateSingleBooking(id, room, startDateTime, endDateTime, eventName, frequency);
         }
         
         // Log admin updates
@@ -512,48 +512,44 @@ exports.updateSeriesBooking = async (req, res) => {
 };
 
 // Helper function to update a single booking
-async function updateSingleBooking(id, room, startDate, endDate, startTime, endTime, eventName, frequency) {
+async function updateSingleBooking(id, room, startDateTime, endDateTime, eventName, frequency) {
     await pool.query(
         `UPDATE bookings SET
          room = ?,
          event_name = ?,
-         start_date = ?,
-         start_time = ?,
-         end_date = ?,
-         end_time = ?,
+         start_datetime = ?,
+         end_datetime = ?,
          frequency = ?
          WHERE id = ?`,
-        [room, eventName, startDate, startTime, endDate, endTime, frequency, id]
+        [room, eventName, startDateTime, endDateTime, frequency, id]
     );
 }
 
 // Helper function to update future bookings in a series
-async function updateFutureBookings(booking, room, startDate, endDate, startTime, endTime, eventName, frequency) {
+async function updateFutureBookings(booking, room, startDateTime, endDateTime, eventName, frequency) {
     await pool.query(
         `UPDATE bookings SET
          room = ?,
          event_name = ?,
-         start_date = ?,
-         start_time = ?,
-         end_date = ?,
-         end_time = ?,
+         start_datetime = ?,
+         end_datetime = ?,
          frequency = ?
-         WHERE series_id = ? AND start_date >= ?`,
-        [room, eventName, startDate, startTime, endDate, endTime, frequency, booking.series_id, booking.start_date]
+         WHERE series_id = ? AND start_datetime >= ?`,
+        [room, eventName, startDateTime, endDateTime, frequency, booking.series_id, booking.start_datetime]
     );
 }
 
 // Helper function to update all bookings in a series
-async function updateAllSeriesBookings(seriesId, room, startDate, endDate, startTime, endTime, eventName, frequency) {
+async function updateAllSeriesBookings(seriesId, room, startDateTime, endDateTime, eventName, frequency) {
     await pool.query(
         `UPDATE bookings SET
          room = ?,
          event_name = ?,
-         start_time = ?,
-         end_time = ?,
+         start_datetime = ?,
+         end_datetime = ?,
          frequency = ?
          WHERE series_id = ?`,
-        [room, eventName, startTime, endTime, frequency, seriesId]
+        [room, eventName, startDateTime, endDateTime, frequency, seriesId]
     );
 }
 
@@ -620,8 +616,8 @@ exports.deleteSeriesBooking = async (req, res) => {
             await pool.query('DELETE FROM bookings WHERE id = ?', [id]);
         } else if (deleteType === 'future') {
             await pool.query(
-                'DELETE FROM bookings WHERE series_id = ? AND start_date >= ?', 
-                [booking.series_id, booking.start_date]
+                'DELETE FROM bookings WHERE series_id = ? AND start_datetime >= ?', 
+                [booking.series_id, booking.start_datetime]
             );
         } else if (deleteType === 'all') {
             await pool.query('DELETE FROM bookings WHERE series_id = ?', [booking.series_id]);
@@ -700,8 +696,8 @@ exports.approveSeriesBooking = async (req, res) => {
             // Approve this and all future bookings in the series
             await pool.query(
                 `UPDATE bookings SET status = 'approved', approved_at = NOW(), approved_by = ? 
-                 WHERE series_id = ? AND start_date >= ?`,
-                [req.user.id, booking.series_id, booking.start_date]
+                 WHERE series_id = ? AND start_datetime >= ?`,
+                [req.user.id, booking.series_id, booking.start_datetime]
             );
         } else if (approveType === 'all') {
             // Approve all bookings in the series
@@ -784,8 +780,8 @@ exports.rejectSeriesBooking = async (req, res) => {
             // Reject this and all future bookings in the series
             await pool.query(
                 `UPDATE bookings SET status = 'rejected', approved_at = NOW(), approved_by = ? 
-                 WHERE series_id = ? AND start_date >= ?`,
-                [req.user.id, booking.series_id, booking.start_date]
+                 WHERE series_id = ? AND start_datetime >= ?`,
+                [req.user.id, booking.series_id, booking.start_datetime]
             );
         } else if (rejectType === 'all') {
             // Reject all bookings in the series
