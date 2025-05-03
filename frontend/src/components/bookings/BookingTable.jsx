@@ -1,10 +1,7 @@
+import { formatDate } from '../../utils/dateUtils'; // Adjust the import path as necessary
+
 export default function BookingTable({ bookings, onEditClick, onDeleteClick, user }) {
-    // Format date for display
-    const formatDate = (dateString) => {
-        const options = { year: 'numeric', month: 'short', day: 'numeric' };
-        return new Date(dateString).toLocaleDateString(undefined, options);
-    };
-    
+
     // Check if user can edit a booking (only if status is pending)
     const canEdit = (booking) => {
         return booking.status === 'pending' || user.role === 'admin';
@@ -31,7 +28,7 @@ export default function BookingTable({ bookings, onEditClick, onDeleteClick, use
                                 {booking.createdAt ? formatDate(booking.createdAt) : formatDate(new Date())}
                             </td>
                             <td className="px-4 py-3 text-sm text-gray-800">{booking.room}</td>
-                            <td className="px-4 py-3 text-sm text-gray-800">{booking.startDatTime}</td>
+                            <td className="px-4 py-3 text-sm text-gray-800">{booking.startDateTime}</td>
                             <td className="px-4 py-3 text-sm text-gray-800">{booking.endDateTime}</td>
                             <td className="px-4 py-3 text-sm text-gray-800 font-medium">
                                 {booking.eventName}

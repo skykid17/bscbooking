@@ -5,6 +5,7 @@ import EditBookingModal from './EditBookingModal';
 import DeleteSeriesBookingModal from './DeleteSeriesBookingModal';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { formatDateTime } from '../../utils/dateUtils';
 
 export default function MyBookings({ user, rooms, bookings, setBookings }) {
     const [filteredBookings, setFilteredBookings] = useState([]);
@@ -45,10 +46,8 @@ export default function MyBookings({ user, rooms, bookings, setBookings }) {
                 userName: booking.user_name,
                 room: booking.room,
                 eventName: booking.event_name,
-                startDate: booking.start_date,
-                endDate: booking.end_date,
-                startTime: booking.start_time,
-                endTime: booking.end_time,
+                startDateTime: formatDateTime(booking.start_datetime),
+                endDateTime: formatDateTime(booking.end_datetime),
                 frequency: booking.frequency,
                 status: booking.status,
                 createdAt: booking.created_at,
@@ -99,8 +98,8 @@ export default function MyBookings({ user, rooms, bookings, setBookings }) {
         
         if (date) {
             filtered = filtered.filter(booking => {
-                const bookingStart = new Date(booking.startDate);
-                const bookingEnd = new Date(booking.endDate);
+                const bookingStart = new Date(booking.startDateTime);
+                const bookingEnd = new Date(booking.endDateTime);
                 const filterDate = new Date(date);
                 
                 return filterDate >= bookingStart && filterDate <= bookingEnd;

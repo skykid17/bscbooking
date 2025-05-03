@@ -2,23 +2,12 @@ import { useState } from 'react';
 import EditSeriesBookingModal from '../bookings/EditSeriesBookingModal';
 import DeleteSeriesBookingModal from '../bookings/DeleteSeriesBookingModal'; 
 import ApproveSeriesBookingModal from '../bookings/ApproveSeriesBookingModal';
+import { formatDateTime, formatDate } from '../../utils/dateUtils'; // Assuming you have a utility function for formatting dates
 
 export default function AdminBookingTable({ bookings, onApprove, onReject, onEdit, onDelete, onRefresh, rooms }) {
     const [editBooking, setEditBooking] = useState(null);
     const [deleteBooking, setDeleteBooking] = useState(null);
     const [approveBooking, setApproveBooking] = useState(null);
-    
-    const formatDate = (dateString) => {
-        const date = new Date(dateString);
-        return date.toLocaleDateString();
-    };
-    
-    const formatDateTime = (dateTimeString) => {
-        if (!dateTimeString) return '';
-        const date = new Date(dateTimeString);
-        console.log(dateTimeString, date);
-        return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
-    };
     
     const isSeriesBooking = (booking) => {
         return booking.seriesId ? true : false;
