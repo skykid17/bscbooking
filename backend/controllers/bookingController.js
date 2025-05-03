@@ -115,12 +115,10 @@ exports.createBooking = async (req, res) => {
                         id, userId, userName, room, eventName,
                         occurrence.startDateTime, occurrence.endDateTime,
                         seriesId, frequency,
-                        approvedBy, status
+                        approvedBy, status // Make sure these two are included
                     ]
                 );
-                res.status(201).json({ 
-                    message: "start datetime is", startDateTime
-                });
+
                 bookings.push({
                     id,
                     userId,
@@ -163,26 +161,29 @@ exports.createBooking = async (req, res) => {
 // Helper function to generate all occurrences for a repeating booking
 function generateOccurrences(startDateTime, endDateTime, repeatType, interval, repeatOn, endsAfter, endsOn) {
     const occurrences = [];
-    let currentStart = new Date(startDateTime);
-    let currentEnd = new Date(endDateTime);
-    
+
+    // Use explicit UTC parsing
+    let currentStart = new Date(startDateTime + 'Z');
+    let currentEnd = new Date(endDateTime + 'Z');
+
     let occurrenceCount = 0;
-    const maxEndDate = endsOn ? new Date(endsOn) : null;
+
+    const maxAllowedEnd = new Date(startDateTime + 'Z');
+    maxAllowedEnd.setFullYear(maxAllowedEnd.getFullYear() + 2);
+
+    const maxEndDate = endsOn ? new Date(endsOn + 'Z') : maxAllowedEnd;
 
     while ((!endsAfter || occurrenceCount < endsAfter) &&
            (!maxEndDate || currentStart <= maxEndDate)) {
 
         if (shouldIncludeOccurrence(currentStart, repeatType, repeatOn)) {
             occurrences.push({
-
-                //CHECK ERROR HERE!!
-                startDateTime: currentStart.toISOString(),
-                endDateTime: currentEnd.toISOString()
+                startDateTime: formatTime(currentStart),
+                endDateTime: formatTime(currentEnd)
             });
             occurrenceCount++;
         }
 
-        // Move both start and end by the interval
         const newStart = advanceDate(currentStart, repeatType, interval);
         const durationMs = currentEnd - currentStart;
         const newEnd = new Date(newStart.getTime() + durationMs);
@@ -271,6 +272,10 @@ function advanceDate(date, repeatType, interval) {
 
 function formatDate(date) {
     return date.toISOString().split('T')[0];
+}
+
+function formatTime(date) {
+    return date.toISOString().slice(0, 19).replace('T', ' ');
 }
 
 function addDays(date, days) {

@@ -64,12 +64,14 @@ o	Recurring Bookings: Set frequency (weekly, biweekly, monthly, nth week).
 o	Create New User/Admin Accounts: Admins can create new users and assign roles (user/admin).
 o	Logging: All changes made by admins should be logged with the timestamp for traceability.
 5. User and Booking Schema
+
 •	User Schema:
 o	id (unique string)
 o	username (unique string)
 o	name (string)
 o	password (string)
 o	role (string) [user, admin]
+
 •	Booking Schema:
 o	id (unique string)
 o	user
@@ -78,9 +80,8 @@ o	event (string)
 o	start_datetime (datetime)
 o	end_datetime (datetime)
 o	frequency (string) [single-use, daily, weekly, nth week, monthly]
-o	frequency_start (datetime)
-o	frequency_end (datetime)
 o	status (string) [pending, approved, rejected]
+
 •	Room Schema:
 o	id (unique string)
 o	room (unique string)

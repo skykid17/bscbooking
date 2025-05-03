@@ -43,8 +43,8 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
     });
     
     // End condition options
-    const [endCondition, setEndCondition] = useState('no-end');
-    const [occurrences, setOccurrences] = useState(10);
+    const [endCondition, setEndCondition] = useState('after');
+    const [occurrences, setOccurrences] = useState(1);
     const [endOnDate, setEndOnDate] = useState(
         new Date(today.getFullYear(), today.getMonth() + 3, today.getDate()).toISOString().split('T')[0]
     );
@@ -157,6 +157,24 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
         }));
     };
 
+    // Set default selected weekday for weekly repeats to match start date's day
+    useEffect(() => {
+        if (frequency === 'weekly' && startDate) {
+            const dateObj = new Date(startDate);
+            const jsDay = dateObj.getDay(); // 0 (Sun) - 6 (Sat)
+            const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+            setWeekDays(prev => {
+                // Only set if none selected
+                if (Object.values(prev).every(v => !v)) {
+                    const newWeekDays = {};
+                    dayNames.forEach((d, i) => { newWeekDays[d] = i === jsDay; });
+                    return newWeekDays;
+                }
+                return prev;
+            });
+        }
+    }, [frequency, startDate]);
+
     // Prepare repeat configuration for API submission
     const prepareRepeatConfig = () => {
         if (frequency === 'single') {
@@ -204,18 +222,24 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
     
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
+
         // Clear previous messages
         setError('');
         setSuccess('');
-        
-        // Validation
+
+        // Validation: Weekly frequency must have at least one day selected
+        if (frequency === 'weekly' && Object.values(weekDays).every(v => !v)) {
+            setError('Please select at least one day for weekly repeats.');
+            setIsLoading(false);
+            return;
+        }
+
+        // Validation: End time must be after start time
         if (startDate === endDate && startTime >= endTime) {
             setError('End time must be after start time');
             return;
         }
-        
-       
+
         try {
             setIsLoading(true);
             
@@ -223,13 +247,11 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
             const bookingUserId = selectedUserId || user.id;
             const bookingUserName = selectedUserName || user.name;
             const repeatConfig = frequency !== 'single' ? prepareRepeatConfig() : null;
-            
+        
+            // Concatenate date and time for backend
             const startDateTime = `${startDate} ${startTime}`;
             const endDateTime = `${endDate} ${endTime}`;
-        
-            console.log(`Start DateTime: ${startDateTime}, End DateTime: ${endDateTime}`);
-            // Concatenate date and time for backend
-           
+
             const bookingData = {
                 room,
                 startDateTime,
@@ -502,18 +524,7 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
                         End
                     </label>
                     
-                    <div className="flex items-center mb-2">
-                        <input
-                            type="radio"
-                            id="noEnd"
-                            className="mr-2"
-                            checked={endCondition === 'no-end'}
-                            onChange={() => setEndCondition('no-end')}
-                        />
-                        <label htmlFor="noEnd" className="text-sm text-gray-700">
-                            No end date
-                        </label>
-                    </div>
+                    
                     
                     <div className="flex items-center mb-2">
                         <input
@@ -557,6 +568,25 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
                             max={twoYearsFromNow}
                             disabled={endCondition !== 'on-date'}
                         />
+                    </div>
+
+                    <div className="flex items-center mb-2">
+                        <input
+                            type="radio"
+                            id="noEnd"
+                            className="mr-2"
+                            checked={endCondition === 'no-end'}
+                            onChange={() => setEndCondition('no-end')}
+                        />
+                        <label htmlFor="noEnd" className="text-sm text-gray-700 relative group">
+                            No end date
+                            <span className="ml-2 text-gray-400 cursor-pointer" tabIndex={0}>
+                                &#9432;
+                                <span className="hidden group-hover:block group-focus:block bg-gray-800 text-white text-xs rounded px-2 py-1 shadow-lg absolute z-10 -left-16 -top-8 whitespace-nowrap">
+                                    For system safety, recurring bookings with no end date are capped at 2 years.
+                                </span>
+                            </span>
+                        </label>
                     </div>
                 </div>
             </div>

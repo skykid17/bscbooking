@@ -17,8 +17,8 @@ export default function BookingTable({ bookings, onEditClick, onDeleteClick, use
                     <tr>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created Date</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Room</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Event</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -31,15 +31,8 @@ export default function BookingTable({ bookings, onEditClick, onDeleteClick, use
                                 {booking.createdAt ? formatDate(booking.createdAt) : formatDate(new Date())}
                             </td>
                             <td className="px-4 py-3 text-sm text-gray-800">{booking.room}</td>
-                            <td className="px-4 py-3 text-sm text-gray-800">
-                                {booking.startDate === booking.endDate 
-                                    ? formatDate(booking.startDate)
-                                    : `${formatDate(booking.startDate)} - ${formatDate(booking.endDate)}`
-                                }
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-800">
-                                {booking.startTime} - {booking.endTime}
-                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-800">{booking.startDatTime}</td>
+                            <td className="px-4 py-3 text-sm text-gray-800">{booking.endDateTime}</td>
                             <td className="px-4 py-3 text-sm text-gray-800 font-medium">
                                 {booking.eventName}
                             </td>
