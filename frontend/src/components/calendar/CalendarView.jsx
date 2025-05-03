@@ -66,8 +66,8 @@ export default function CalendarView({ room, bookings = [] }) {
         
         return filteredBookings.filter(booking => {
             // Extract just the date parts (YYYY-MM-DD) from the ISO strings
-            const startDateStr = new Date(booking.start).toISOString().split('T')[0];
-            const endDateStr = new Date(booking.end).toISOString().split('T')[0];
+            const startDateStr = new Date(booking.startDateTime).toISOString().split('T')[0];
+            const endDateStr = new Date(booking.endDateTime).toISOString().split('T')[0];
             
             // Check if the calendar date is between or equal to the start/end dates
             return (
@@ -98,47 +98,61 @@ export default function CalendarView({ room, bookings = [] }) {
     return (
         <div>
             <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-gray-800">
+                <h2 className="text-2xl font-light text-gray-800 tracking-wide">
                     {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
                 </h2>
-                <div className="flex space-x-2">
+                <div className="flex space-x-3">
                     <button 
-                        className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
+                        className="px-4 py-2 text-gray-600 rounded-md hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-200"
                         onClick={handlePrevMonth}
                     >
-                        &larr; Prev
+                        &larr;
                     </button>
                     <button 
-                        className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
+                        className="px-4 py-2 text-gray-600 rounded-md hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-200"
                         onClick={handleNextMonth}
                     >
-                        Next &rarr;
+                        &rarr;
                     </button>
                 </div>
             </div>
             
-            <div className="border rounded-lg shadow overflow-hidden">
+            <div className="rounded-lg shadow-sm overflow-hidden bg-white">
                 {/* Calendar Header */}
-                <div className="grid grid-cols-7 bg-gray-100 border-b">
+                <div className="grid grid-cols-7 bg-gray-50">
                     {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                        <div key={day} className="text-center py-2 font-medium text-sm text-gray-600">
+                        <div key={day} className="text-center py-3 font-medium text-xs text-gray-500 uppercase tracking-wider">
                             {day}
                         </div>
                     ))}
                 </div>
                 
                 {/* Calendar Grid */}
-                <div className="grid grid-cols-7 grid-rows-6">
+                <div className="grid grid-cols-7 grid-rows-6 border-t border-gray-100">
                     {calendarDays.map((day, index) => {
                         const dayBookings = getBookingsForDay(day.date);
+                        const isToday = day.isCurrentMonth && 
+                            new Date().toDateString() === day.date.toDateString();
                         
                         return (
                             <div 
                                 key={index} 
-                                className={`p-1 border-b border-r h-24 ${day.isCurrentMonth ? 'bg-white' : 'bg-gray-50 text-gray-400'}`}
+                                className={`p-2 ${index % 7 !== 6 ? 'border-r' : ''} ${
+                                    Math.floor(index / 7) !== 5 ? 'border-b' : ''
+                                } border-gray-100 h-28 ${
+                                    day.isCurrentMonth ? 'bg-white' : 'bg-gray-50'
+                                } transition-colors`}
                             >
-                                <div className="text-right text-sm mb-1">
-                                    {day.dayOfMonth}
+                                <div className={`text-right mb-1 ${
+                                    isToday ? 'relative' : ''
+                                }`}>
+                                    <span className={`text-xs font-medium ${
+                                        isToday 
+                                        ? 'bg-blue-500 text-white w-6 h-6 rounded-full inline-flex items-center justify-center'
+                                        : day.isCurrentMonth ? 'text-gray-700' : 'text-gray-400'
+                                    }`}>
+                                        {day.dayOfMonth}
+                                    </span>
                                 </div>
                                 <div className="overflow-y-auto max-h-16">
                                     {dayBookings.map(booking => (
@@ -148,8 +162,8 @@ export default function CalendarView({ room, bookings = [] }) {
                                             onClick={() => handleBookingClick(booking)}
                                         >
                                             {booking.eventName} (
-                                                {new Date(booking.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}-
-                                                {new Date(booking.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                {new Date(booking.startDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}-
+                                                {new Date(booking.endDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                             )
                                         </div>
                                     ))}
