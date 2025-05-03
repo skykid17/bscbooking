@@ -30,16 +30,16 @@ export default function BookingModal({ booking, onClose }) {
                         <div>
                             <p className="text-sm text-gray-500 font-medium">Date</p>
                             <p>
-                                {new Date(booking.start).toLocaleDateString() === new Date(booking.end).toLocaleDateString()
-                                    ? new Date(booking.start).toLocaleDateString()
-                                    : `${new Date(booking.start).toLocaleDateString()} - ${new Date(booking.end).toLocaleDateString()}`}
+                                {new Date(booking.startDateTime).toLocaleDateString() === new Date(booking.endDateTime).toLocaleDateString()
+                                    ? new Date(booking.startDateTime).toLocaleDateString()
+                                    : `${new Date(booking.startDateTime).toLocaleDateString()} - ${new Date(booking.endDateTime).toLocaleDateString()}`}
                             </p>
                         </div>
                         <div>
                             <p className="text-sm text-gray-500 font-medium">Time</p>
                             <p>
-                                {new Date(booking.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
-                                {new Date(booking.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                {new Date(booking.startDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
+                                {new Date(booking.endDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </p>
                         </div>
                     </div>

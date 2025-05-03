@@ -76,8 +76,8 @@ export default function AdminDashboard({ user }) {
                 userName: booking.user_name,
                 room: booking.room,
                 eventName: booking.event_name,
-                start: booking.start_datetime, // Make sure this is a valid date string
-                end: booking.end_datetime,     // Make sure this is a valid date string
+                startDateTime: booking.start_datetime, // Make sure this is a valid date string
+                endDateTime: booking.end_datetime,     // Make sure this is a valid date string
                 frequency: booking.frequency,
                 status: booking.status,
                 createdAt: booking.created_at,
@@ -150,8 +150,8 @@ export default function AdminDashboard({ user }) {
         
         if (date) {
             filtered = filtered.filter(booking => {
-                const bookingStart = new Date(booking.start);
-                const bookingEnd = new Date(booking.end);
+                const bookingStart = new Date(booking.startDateTime);
+                const bookingEnd = new Date(booking.endDateTime);
                 const filterDate = new Date(date);
                 
                 return filterDate >= bookingStart && filterDate <= bookingEnd;
