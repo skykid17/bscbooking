@@ -1,0 +1,174 @@
+---
+
+## 🛠️ Full-Stack BSC Room Booking Web App
+
+Build a minimalist full-stack room reservation web application using the following stack:
+
+* **Frontend:** React + Tailwind CSS
+* **Backend:** Node.js (Express)
+* **Database:** MySQL (`localhost:3306`, user: `root`, password: `P@55w0rd`, db: `bsc-booking`)
+
+### 🧱 General Guidelines:
+
+* Modular, reusable components and routes
+* Clean and intuitive UI
+* RESTful API design
+* Follow MVC or a clean code separation pattern
+* Use environment variables for secrets (e.g., DB credentials, JWT secret)
+* Seed with initial users and rooms for testing
+* Add meaningful error messages and input validations
+
+---
+
+## 🔐 Authentication & Authorization
+
+Implement user authentication via **modal login**, supporting:
+
+* JWT-based auth
+* Role-based access control:
+
+  * `user`
+  * `admin`
+
+---
+
+## 📄 Pages & Features
+
+### 1. **Login Page** (for all users)
+
+* Modal login form (username & password)
+* Show errors for invalid login
+* Redirect to the appropriate page based on role
+
+---
+
+### 2. **Home Page** (All Users)
+
+Includes a **room booking form**:
+
+* Select room from dropdown
+* Start date (default: today)
+* Optional end date
+* Time slots: 30-minute intervals (6 AM to 12 AM)
+* Frequency (default = `single`):
+
+  * `daily`, `weekly`, `monthly`, `yearly`, `custom`
+* Input event name
+* Booking is submitted with status `"pending"`
+
+#### 🗓️ Calendar View (Tab per Room)
+
+* Monthly calendar with only approved bookings
+* Events show:
+
+  * Event name, time, user
+* Modal popup on click for full event info
+
+---
+
+### 3. **My Bookings Page** (User-specific)
+
+* Filter by room and date
+* Paginated table:
+
+  * Created date
+  * Room
+  * Time range
+  * Event name
+  * Status
+  * Approved on
+* Actions:
+
+  * Edit/Delete *only* pending bookings
+  * Choose to modify:
+
+    * Just this event
+    * This and future events
+    * Entire series
+
+---
+
+### 4. **Admin Page** (Admins only)
+
+* Filter and manage **all bookings**
+* Actions:
+
+  * Approve/Reject/Edit/Delete (any booking)
+  * Book rooms for other users
+* Manage recurring bookings:
+
+  * This event only / this + future / entire series
+* Create and assign roles to users
+* Log all admin actions with timestamps
+* All tables must support pagination + sorting
+
+---
+
+## Repeating Bookings (Series Feature)
+
+**Allow users/admins to create repeating bookings** with flexible frequency settings:
+
+* **Daily:** every x days
+* **Weekly:** every x weeks, choose weekdays (e.g., Mon, Wed)
+* **Monthly:**
+
+  * Repeat on specific day (e.g., 15th)
+  * Repeat on weekday pattern (e.g., 2nd Tuesday)
+  * Repeat on selected dates
+* **Yearly:**
+
+  * Repeat on a specific date (e.g., May 15)
+  * Repeat on weekday pattern in selected months (e.g., 1st Friday of May & Oct)
+* **Set End Conditions:**
+
+  * After n times
+  * On specific date (max 2 years from today)
+
+---
+
+## Database Schema (can be extended)
+
+**Tables:**
+
+* `User`: id, username, name, password, role
+* `Room`: id, room, floor, pax
+* `Booking`: id, user\_id, room\_id, event, start\_datetime, end\_datetime, frequency, series\_id, status
+* `Series`: id, repeat\_type, interval, repeat\_on (e.g., days or weekdays), ends\_after, ends\_on
+* `AdminLog`: id, admin\_id, action, target\_booking\_id, timestamp
+
+---
+
+## Testing
+
+Seed data for:
+
+* Users:
+
+  * `user:user`
+  * `admin:admin`
+  * `superadmin:superadmin`
+
+* Rooms:
+
+  * Damien Hall (floor 1, pax 100)
+  * Attic (floor 5, pax 30)
+
+---
+
+Other Requirements
+
+* Role-based routing (users blocked from admin routes)
+* Input validation for all forms
+* Paginate all booking-related tables
+* Clean UI (minimal Tailwind, calendar can use libraries or custom)
+* Secure routes and queries (SQL injection-safe, session expiration, etc.)
+* Scaffold basic functionality for each route/page to allow fast iteration
+
+---
+
+Notes for Copilot:
+
+* Use any libraries (e.g., `jsonwebtoken`, `bcrypt`, etc.)
+* Prioritize simplicity and extensibility in UI and API structure
+
+---

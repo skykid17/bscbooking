@@ -1,9 +1,9 @@
 ============================================== PROMPT 1 ====================================================
 
-Create a full-stack room booking web application with the following stack:
+Create a full-stack room booking web application with the following stack: Use reusable and maintainable component code where possible
 Frontend: React + Tailwind CSS
 Backend: Node.js (Express)
-Database: MySQL (localhost:3306, user: root, password: P@55w0rd)
+Database: MySQL (localhost:3306, user: root, password: P@55w0rd, name of database: bsc-booking)
 
 Features:
 1. Authentication
@@ -23,7 +23,7 @@ Default start date = today
 Optional end date (for multiple-day bookings)
 Time selection (30-minute steps from 6:00 AM–12:00 AM)
 Only available slots are selectable
-Frequency: single-use (default), daily, weekly, monthly
+Frequency: single (default), daily, weekly, monthly
 Event name input
 Status defaults to "pending"
 Calendar View:
@@ -31,13 +31,13 @@ One tab per room showing monthly calendar
 Only approved bookings shown
 Show event name, times, user
 Modal popup on click with full details and status
-My Bookings Page (Users):
 
+My Bookings Page (All Users):
 Filter by room and date
 Paginated table with columns: created date, room, times, event, status, approved on
 Users can edit/delete only their pending bookings
-Admin Page (Admins only):
 
+Admin Page (Admins only):
 Filter bookings by user, room, date, status
 Paginated, sortable table of all bookings
 Actions: approve/reject/edit/delete bookings
@@ -47,9 +47,10 @@ Admins can create users and assign roles
 Log all admin actions with timestamps
 Database Schema:
 User: id, username, name, password, role
-Booking: id, user, room, event, start_date/time, end_date/time, frequency, frequency_start/end, status
+Booking: id, user, room, event, start_datetime, end_datetime, frequency (single, daily, weekly, monthly), series_id, status
 Room: id, room, floor (2–5), pax
-Logs: id, timestamp, action
+Series: id, repeat_type, repeat_interval, repeat_on (["Monday", "Wednesday"] or ["15"] or ["Second Tuesday"] or ["February", "April"]), ends_after (Repeat N times), ends_on (Or until specific date (max 2 years from now))
+
 Testing:
 Add seed data for:
 User: user / user / user / user
@@ -65,44 +66,38 @@ Scaffold the project with this structure and implement basic functionality for e
 
 ============================================== PROMPT 2 ====================================================
 
-Add a repeating booking series feature in the room reservation system.
+The repeating booking series feature in the room reservation system.
 
 Requirements:
 
 Frequency Options:
 - Default: "single"
 
-Allow all users to choose Frequency options:
+Allow all users to choose frequency options:
 - Every x days
-- Every x weeks (with options to repeat on specific weekdays)
+- Every x weeks
+- - Selection of specific weekdays
 - Every x months:
-- Repeat on yth of month (e.g., 15th)
-- Repeat on zth day (e.g., 2nd Tuesday)
-
-- Select specific dates
-  - Every x years:
-  - Repeat on current date
-  - Repeat on yth day of month
-
-- Select months to repeat
+  - Repeat on yth of month (e.g., 15th)
+  - Repeat on zth day (e.g., 2nd Tuesday)
+  - Selection of dates (dd) to repeat
+- Every x year
+  - Repeat on yth date (eg. 15th May)
+  - Repeat on zth day (e.g. 1st Friday of May)
+  - Selection of months to repeat on nth day
 
 - Set Duration:
   - End after a specific number of times
   - End on a particular date (max 2 years from current date)
 
 User Controls in "My Bookings":
-- Edit/delete options:
+- Edit/delete own bookings:
   - Only this event
   - This and future events
   - All events in series
 
 Admin Controls:
-- Can approve or reject:
-  - Only this event
-  - This and future events
-  - All events in series
-
-- Can add/edit/delete repeating bookings on behalf of other users
+- Can approve/reject/add/edit/delete repeating bookings on behalf of other users:
   - Only this event
   - This and future events
   - All events in series
