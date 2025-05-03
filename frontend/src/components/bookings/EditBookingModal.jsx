@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
+import { formatDateForInput, formatTime } from '../../utils/dateUtils'; // Assuming you have a utility function for formatting dates
 
 export default function EditBookingModal({ booking, rooms, onSave, onClose }) {
     const [room, setRoom] = useState(booking.room);
-    const [startDate, setStartDate] = useState(booking.startDate);
-    const [isMultipleDays, setIsMultipleDays] = useState(booking.startDate !== booking.endDate);
-    const [endDate, setEndDate] = useState(booking.endDate);
-    const [startTime, setStartTime] = useState(booking.startTime);
-    const [endTime, setEndTime] = useState(booking.endTime);
+    const [startDate, setStartDate] = useState(formatDateForInput(booking.startDateTime));
+    const [endDate, setEndDate] = useState(formatDateForInput(booking.endDateTime));
+    const [startTime, setStartTime] = useState(formatTime(booking.startDateTime));
+    const [endTime, setEndTime] = useState(formatTime(booking.endDateTime));
     const [eventName, setEventName] = useState(booking.eventName);
     const [frequency, setFrequency] = useState(booking.frequency || 'single');
     const [error, setError] = useState('');
@@ -90,7 +90,7 @@ export default function EditBookingModal({ booking, rooms, onSave, onClose }) {
                                 required
                             >
                                 {rooms.map(r => (
-                                    <option key={r} value={r}>{r}</option>
+                                    <option key={r.id} value={r.name}>{r.name}</option>
                                 ))}
                             </select>
                         </div>
@@ -117,34 +117,16 @@ export default function EditBookingModal({ booking, rooms, onSave, onClose }) {
                                 required
                             />
                         </div>
-                        
-                        <div className="flex items-center">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">End Date *</label>
                             <input
-                                type="checkbox"
-                                id="editMultipleDays"
-                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                checked={isMultipleDays}
-                                onChange={(e) => setIsMultipleDays(e.target.checked)}
+                                type="date"
+                                className="w-full p-2 border border-gray-300 rounded-md"
+                                value={endDate}
+                                onChange={(e) => setEndDate(e.target.value)}
+                                min={startDate}
                             />
-                            <label htmlFor="editMultipleDays" className="ml-2 block text-sm text-gray-700">
-                                Multiple Consecutive Days
-                            </label>
                         </div>
-                        
-                        {isMultipleDays && (
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">End Date *</label>
-                                <input
-                                    type="date"
-                                    className="w-full p-2 border border-gray-300 rounded-md"
-                                    value={endDate}
-                                    onChange={(e) => setEndDate(e.target.value)}
-                                    min={startDate}
-                                    required={isMultipleDays}
-                                />
-                            </div>
-                        )}
-                        
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Start Time *</label>
                             <select
