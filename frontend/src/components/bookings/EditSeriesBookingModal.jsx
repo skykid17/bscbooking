@@ -51,6 +51,9 @@ export default function EditSeriesBookingModal({ booking, onClose, onUpdate, roo
             return;
         }
 
+        const start_datetime = `${startDate} ${startTime}`;
+        const end_datetime = `${endDate} ${endTime}`;
+
         try {
             setIsLoading(true);
             
@@ -59,10 +62,8 @@ export default function EditSeriesBookingModal({ booking, onClose, onUpdate, roo
                 `http://localhost:5000/api/bookings/series/${booking.id}`,
                 {
                     room,
-                    startDate,
-                    endDate,
-                    startTime,
-                    endTime,
+                    start_datetime,
+                    end_datetime,
                     eventName,
                     frequency,
                     updateType // 'this', 'future', or 'all'
@@ -76,7 +77,16 @@ export default function EditSeriesBookingModal({ booking, onClose, onUpdate, roo
             );
             
             toast.success('Booking updated successfully');
-            onUpdate(); // Refresh the bookings list
+            const updatedBooking = {
+                ...booking,
+                room,
+                start_datetime,
+                end_datetime,
+                eventName,
+                frequency,
+                updateType
+            };
+            await onUpdate(updatedBooking); // Refresh the bookings list
             onClose(); // Close the modal
             
         } catch (err) {

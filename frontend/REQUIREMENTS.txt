@@ -64,25 +64,24 @@ o	Recurring Bookings: Set frequency (weekly, biweekly, monthly, nth week).
 o	Create New User/Admin Accounts: Admins can create new users and assign roles (user/admin).
 o	Logging: All changes made by admins should be logged with the timestamp for traceability.
 5. User and Booking Schema
+
 •	User Schema:
 o	id (unique string)
 o	username (unique string)
 o	name (string)
 o	password (string)
 o	role (string) [user, admin]
+
 •	Booking Schema:
 o	id (unique string)
 o	user
 o	room (unique string)
 o	event (string)
-o	start_date (dd MM yy)
-o	start_time (hh:mm)
-o	end_date (dd MM yy)
-o	end_time (hh:mm)
+o	start_datetime (datetime)
+o	end_datetime (datetime)
 o	frequency (string) [single-use, daily, weekly, nth week, monthly]
-o	frequency_start (datetime)
-o	frequency_end (datetime)
 o	status (string) [pending, approved, rejected]
+
 •	Room Schema:
 o	id (unique string)
 o	room (unique string)
@@ -97,17 +96,15 @@ o	action (string) [admin action logs such as approval, update, delete]
 •	Backend: Node.js
 •	Database: MySQL (localhost:3306 root:P@55w0rd)
 7. Testing Accounts
-•	Test Accounts for User Role:
-o	user1:
-	Username: user1
-	Name: Alice
-	Password: user1
+•	Test Account for User Role:
+	Username: user
+	Name: user
+	Password: user
 	Role: user
-•	Test Accounts for Admin Role:
-o	admin1:
-	Username: admin1
-	Name: Bob
-	Password: admin1
+•	Test Account for Admin Role:
+	Username: admin
+	Name: admin
+	Password: admin
 	Role: admin
 8. Security and Authentication
 •	Role-based Access Control: Ensure that users can only access appropriate pages (admin pages for admin role only).

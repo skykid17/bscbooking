@@ -31,13 +31,12 @@ export default function Dashboard({ user }) {
                 userName: booking.user_name,
                 room: booking.room,
                 eventName: booking.event_name,
-                startDate: booking.start_date,
-                endDate: booking.end_date,
-                startTime: booking.start_time,
-                endTime: booking.end_time,
+                startDateTime: booking.start_datetime,
+                endDateTime: booking.end_datetime,
                 frequency: booking.frequency,
                 status: booking.status,
                 createdAt: booking.created_at,
+                approvedAt: booking.approved_at,
                 seriesId: booking.series_id
             }));
 

@@ -8,7 +8,6 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
     
     const [room, setRoom] = useState(rooms.length > 0 ? rooms[0].name : '');
     const [startDate, setStartDate] = useState(formattedToday);
-    const [isMultipleDays, setIsMultipleDays] = useState(false);
     const [endDate, setEndDate] = useState(formattedToday);
     const [startTime, setStartTime] = useState('09:00');
     const [endTime, setEndTime] = useState('10:00');
@@ -44,8 +43,8 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
     });
     
     // End condition options
-    const [endCondition, setEndCondition] = useState('no-end');
-    const [occurrences, setOccurrences] = useState(10);
+    const [endCondition, setEndCondition] = useState('after');
+    const [occurrences, setOccurrences] = useState(1);
     const [endOnDate, setEndOnDate] = useState(
         new Date(today.getFullYear(), today.getMonth() + 3, today.getDate()).toISOString().split('T')[0]
     );
@@ -158,6 +157,24 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
         }));
     };
 
+    // Set default selected weekday for weekly repeats to match start date's day
+    useEffect(() => {
+        if (frequency === 'weekly' && startDate) {
+            const dateObj = new Date(startDate);
+            const jsDay = dateObj.getDay(); // 0 (Sun) - 6 (Sat)
+            const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+            setWeekDays(prev => {
+                // Only set if none selected
+                if (Object.values(prev).every(v => !v)) {
+                    const newWeekDays = {};
+                    dayNames.forEach((d, i) => { newWeekDays[d] = i === jsDay; });
+                    return newWeekDays;
+                }
+                return prev;
+            });
+        }
+    }, [frequency, startDate]);
+
     // Prepare repeat configuration for API submission
     const prepareRepeatConfig = () => {
         if (frequency === 'single') {
@@ -205,34 +222,40 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
     
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
+
         // Clear previous messages
         setError('');
         setSuccess('');
-        
-        // Validation
+
+        // Validation: Weekly frequency must have at least one day selected
+        if (frequency === 'weekly' && Object.values(weekDays).every(v => !v)) {
+            setError('Please select at least one day for weekly repeats.');
+            setIsLoading(false);
+            return;
+        }
+
+        // Validation: End time must be after start time
         if (startDate === endDate && startTime >= endTime) {
             setError('End time must be after start time');
             return;
         }
-        
+
         try {
             setIsLoading(true);
             
             // Prepare booking data
             const bookingUserId = selectedUserId || user.id;
             const bookingUserName = selectedUserName || user.name;
-            
-            // Prepare repeat configuration if needed
             const repeatConfig = frequency !== 'single' ? prepareRepeatConfig() : null;
-            
-            // Construct booking data
+        
+            // Concatenate date and time for backend
+            const startDateTime = `${startDate} ${startTime}`;
+            const endDateTime = `${endDate} ${endTime}`;
+
             const bookingData = {
                 room,
-                startDate,
-                endDate: isMultipleDays ? endDate : startDate,
-                startTime,
-                endTime,
+                startDateTime,
+                endDateTime,
                 eventName,
                 frequency,
                 userId: bookingUserId,
@@ -282,7 +305,6 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
         setEventName('');
         setStartTime('09:00');
         setEndTime('10:00');
-        setIsMultipleDays(false);
         setEndDate(formattedToday);
         setFrequency('single');
         setRepeatInterval(1);
@@ -502,18 +524,7 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
                         End
                     </label>
                     
-                    <div className="flex items-center mb-2">
-                        <input
-                            type="radio"
-                            id="noEnd"
-                            className="mr-2"
-                            checked={endCondition === 'no-end'}
-                            onChange={() => setEndCondition('no-end')}
-                        />
-                        <label htmlFor="noEnd" className="text-sm text-gray-700">
-                            No end date
-                        </label>
-                    </div>
+                    
                     
                     <div className="flex items-center mb-2">
                         <input
@@ -557,6 +568,25 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
                             max={twoYearsFromNow}
                             disabled={endCondition !== 'on-date'}
                         />
+                    </div>
+
+                    <div className="flex items-center mb-2">
+                        <input
+                            type="radio"
+                            id="noEnd"
+                            className="mr-2"
+                            checked={endCondition === 'no-end'}
+                            onChange={() => setEndCondition('no-end')}
+                        />
+                        <label htmlFor="noEnd" className="text-sm text-gray-700 relative group">
+                            No end date
+                            <span className="ml-2 text-gray-400 cursor-pointer" tabIndex={0}>
+                                &#9432;
+                                <span className="hidden group-hover:block group-focus:block bg-gray-800 text-white text-xs rounded px-2 py-1 shadow-lg absolute z-10 -left-16 -top-8 whitespace-nowrap">
+                                    For system safety, recurring bookings with no end date are capped at 2 years.
+                                </span>
+                            </span>
+                        </label>
                     </div>
                 </div>
             </div>
@@ -644,38 +674,26 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
                         type="date"
                         className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
+                        onChange={(e) => {
+                            setStartDate(e.target.value);
+                            if (endDate < e.target.value) setEndDate(e.target.value);
+                        }}
                         min={formattedToday}
                         required
                     />
                 </div>
                 
-                <div className="flex items-center">
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">End Date *</label>
                     <input
-                        type="checkbox"
-                        id="multipleDays"
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        checked={isMultipleDays}
-                        onChange={(e) => setIsMultipleDays(e.target.checked)}
+                        type="date"
+                        className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        min={startDate}
+                        required
                     />
-                    <label htmlFor="multipleDays" className="ml-2 block text-sm text-gray-700">
-                        Multiple Consecutive Days
-                    </label>
                 </div>
-                
-                {isMultipleDays && (
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">End Date *</label>
-                        <input
-                            type="date"
-                            className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            value={endDate}
-                            onChange={(e) => setEndDate(e.target.value)}
-                            min={startDate}
-                            required={isMultipleDays}
-                        />
-                    </div>
-                )}
                 
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Start Time *</label>
