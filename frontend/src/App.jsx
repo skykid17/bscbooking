@@ -37,14 +37,27 @@ function App() {
     localStorage.removeItem('user');
     setUser(null);
   };
+  
+  // Add state for auth page management
+  const [authPage, setAuthPage] = useState('login');
 
   return (
     <BrowserRouter>
       <AuthInterceptorSetup />
-      <ToastContainer position="top-right" autoClose={5000} hideProgressBar={false} newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover />
+      <ToastContainer 
+        position="top-right" 
+        autoClose={4000} 
+        hideProgressBar={true}
+        newestOnTop={false} 
+        closeOnClick 
+        toastClassName="shadow-sm rounded-lg overflow-hidden border-0"
+        bodyClassName="border-0"
+        pauseOnFocusLoss 
+        draggable 
+      />
       <Layout user={user} onLogout={handleLogout}>
-        <div className="min-h-screen bg-gray-100 pt-10">
-          <div className="container mx-auto px-4">
+        <div className="min-h-screen bg-background">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <Routes>
               <Route path="/login" element={
                 user ? <Navigate to="/" /> : <LoginPage onLoginSuccess={handleLoginSuccess} />
