@@ -61,15 +61,18 @@ export default function CalendarView({ room, bookings = [] }) {
     
     // Get bookings for a specific day
     const getBookingsForDay = (date) => {
-        const dateStr = date.toISOString().split('T')[0];
+        // Convert the calendar day to a date string (YYYY-MM-DD) for comparison
+        const calendarDateStr = date.toISOString().split('T')[0];
+        
         return filteredBookings.filter(booking => {
-            const startDate = new Date(booking.startDate);
-            const endDate = new Date(booking.endDate);
+            // Extract just the date parts (YYYY-MM-DD) from the ISO strings
+            const startDateStr = new Date(booking.start).toISOString().split('T')[0];
+            const endDateStr = new Date(booking.end).toISOString().split('T')[0];
             
-            // Check if the date is between start and end dates (inclusive)
+            // Check if the calendar date is between or equal to the start/end dates
             return (
-                date >= startDate &&
-                date <= endDate
+                calendarDateStr >= startDateStr && 
+                calendarDateStr <= endDateStr
             );
         });
     };
@@ -144,7 +147,10 @@ export default function CalendarView({ room, bookings = [] }) {
                                             className="text-xs mb-1 p-1 bg-blue-100 text-blue-800 rounded cursor-pointer hover:bg-blue-200"
                                             onClick={() => handleBookingClick(booking)}
                                         >
-                                            {booking.eventName} ({booking.startTime}-{booking.endTime})
+                                            {booking.eventName} (
+                                                {new Date(booking.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}-
+                                                {new Date(booking.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            )
                                         </div>
                                     ))}
                                 </div>
