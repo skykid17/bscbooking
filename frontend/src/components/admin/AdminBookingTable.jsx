@@ -16,6 +16,7 @@ export default function AdminBookingTable({ bookings, onApprove, onReject, onEdi
     const formatDateTime = (dateTimeString) => {
         if (!dateTimeString) return '';
         const date = new Date(dateTimeString);
+        console.log(dateTimeString, date);
         return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
     };
     
@@ -68,8 +69,8 @@ export default function AdminBookingTable({ bookings, onApprove, onReject, onEdi
                         <th className="px-4 py-3 text-left">User</th>
                         <th className="px-4 py-3 text-left">Date Created</th>
                         <th className="px-4 py-3 text-left">Room</th>
-                        <th className="px-4 py-3 text-left">Date</th>
-                        <th className="px-4 py-3 text-left">Time</th>
+                        <th className="px-4 py-3 text-left">Start</th>
+                        <th className="px-4 py-3 text-left">End</th>
                         <th className="px-4 py-3 text-left">Event Name</th>
                         <th className="px-4 py-3 text-left">Series</th>
                         <th className="px-4 py-3 text-left">Status</th>
@@ -84,15 +85,8 @@ export default function AdminBookingTable({ bookings, onApprove, onReject, onEdi
                                 {booking.createdAt ? formatDate(booking.createdAt) : formatDate(new Date())}
                             </td>
                             <td className="px-4 py-3 text-sm">{booking.room}</td>
-                            <td className="px-4 py-3 text-sm">
-                                {booking.startDate === booking.endDate 
-                                    ? formatDate(booking.startDate)
-                                    : `${formatDate(booking.startDate)} - ${formatDate(booking.endDate)}`
-                                }
-                            </td>
-                            <td className="px-4 py-3 text-sm">
-                                {booking.startTime} - {booking.endTime}
-                            </td>
+                            <td className="px-4 py-3 text-sm">{formatDateTime(booking.startDateTime)}</td>
+                            <td className="px-4 py-3 text-sm">{formatDateTime(booking.endDateTime)}</td>
                             <td className="px-4 py-3 text-sm font-medium">
                                 {booking.eventName}
                             </td>

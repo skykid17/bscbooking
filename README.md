@@ -72,6 +72,34 @@ Create a frontend .env
 REACT_APP_API_URL=http://localhost:3000/api
 ```
 
+Ensure vite.config.js has following code
+```js
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
+
+// https://vite.dev/config/
+export default defineConfig({
+  plugins: [react(), tailwindcss()],
+})
+
+```
+
+Ensure tailwind.config.js has following code
+```js
+/** @type {import('tailwindcss').Config} */
+export default {
+    content: [
+      "./index.html",
+      "./src/**/*.{js,ts,jsx,tsx}",
+    ],
+    theme: {
+      extend: {},
+    },
+    plugins: [],
+  }
+```
+
 ### 4. Running the Application
 
 * **Backend:**
