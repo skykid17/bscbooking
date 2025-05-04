@@ -1,8 +1,8 @@
 import axios from 'axios';
 import { toast } from 'react-toastify';
 
-// Setup axios interceptor to handle JWT expiration
-export const setupAuthInterceptors = (navigate) => {
+// Add setUser parameter to update App.jsx state
+export const setupAuthInterceptors = (navigate, setUser) => {
   // Add a response interceptor
   axios.interceptors.response.use(
     response => response,  // Pass successful responses through
@@ -18,6 +18,11 @@ export const setupAuthInterceptors = (navigate) => {
           // Clear authentication data
           localStorage.removeItem('token');
           localStorage.removeItem('user');
+          
+          // Update user state in App component
+          if (setUser) {
+            setUser(null);
+          }
           
           // Show notification to user
           toast.error('Your session has expired. Please log in again.');

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { setupAuthInterceptors } from './utils/authUtils';
+import { setupAuthInterceptors, isAuthenticated } from './utils/authUtils';
 import LoginPage from './components/auth/LoginPage';
 import RegisterPage from './components/auth/RegisterPage';
 import Dashboard from './components/dashboard/Dashboard';
@@ -10,20 +10,25 @@ import AdminDashboard from './components/admin/AdminDashboard';
 import Layout from './components/layout/Layout';
 
 // Create a wrapper component to access navigate inside useEffect
-function AuthInterceptorSetup() {
+function AuthInterceptorSetup({ setUser }) {
   const navigate = useNavigate();
   
   useEffect(() => {
-    setupAuthInterceptors(navigate);
-  }, [navigate]);
+    // Pass both navigate and setUser to the interceptor
+    setupAuthInterceptors(navigate, setUser);
+  }, [navigate, setUser]);
   
   return null;
 }
 
 function App() {
   const [user, setUser] = useState(() => {
-    const savedUser = localStorage.getItem('user');
-    return savedUser ? JSON.parse(savedUser) : null;
+    // Only load the user if we have a valid token
+    if (isAuthenticated()) {
+      const savedUser = localStorage.getItem('user');
+      return savedUser ? JSON.parse(savedUser) : null;
+    }
+    return null;
   });
   
   // Handle login success
@@ -43,7 +48,7 @@ function App() {
 
   return (
     <BrowserRouter>
-      <AuthInterceptorSetup />
+      <AuthInterceptorSetup setUser={setUser} />
       <ToastContainer 
         position="top-right" 
         autoClose={4000} 
