@@ -43,7 +43,7 @@ export default function LoginModal({ onLoginSuccess, onRegisterClick }) {
             <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Login</h2>
             
             
-            <div className="space-y-5">
+            <div className="space-y-10">
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Username</label>
                     <input
@@ -85,7 +85,7 @@ export default function LoginModal({ onLoginSuccess, onRegisterClick }) {
                             className="text-blue-600 hover:text-blue-800 font-medium"
                             onClick={onRegisterClick}
                         >
-                            Register
+                            Registersddd
                         </button>
                     </p>
                 </div>

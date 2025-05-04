@@ -16,12 +16,10 @@ export default function TopNav({ user, onLogout }) {
     const navigate = useNavigate();
     const location = useLocation();
     const [activeTab, setActiveTab] = useState(() => {
-        // Determine initial active tab based on localStorage
-        return localStorage.getItem('activeTab') || (user?.role === 'admin' ? 'home' : 'booking');
+        return localStorage.getItem('activeTab') || (user?.role === 'admin' ? 'bookings' : 'booking');
     });
 
     useEffect(() => {
-        // Sync with any external changes to activeTab
         const storedTab = localStorage.getItem('activeTab');
         if (storedTab && storedTab !== activeTab) {
             setActiveTab(storedTab);
@@ -32,12 +30,10 @@ export default function TopNav({ user, onLogout }) {
         setActiveTab(tab);
         localStorage.setItem('activeTab', tab);
         
-        // Update localStorage and trigger a storage event for other components to detect
         const event = new Event('storage');
         window.dispatchEvent(event);
     };
 
-    // Define navigation items based on user role
     const navItems = user.role === 'admin' ? [
         { id: 'home', label: 'Dashboard', icon: faHome },
         { id: 'bookings', label: 'Manage Bookings', icon: faClipboardList },
@@ -52,27 +48,27 @@ export default function TopNav({ user, onLogout }) {
     ];
 
     return (
-        <div className="bg-white shadow-sm sticky top-0 z-10">
+        <div className="bg-white border-b border-gray-100 shadow-sm sticky top-0 z-10 backdrop-blur-sm bg-white/95">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between">
                     {/* Navigation items on the left */}
-                    <nav className="flex items-center space-x-4 py-3">
+                    <nav className="flex items-center space-x-2 py-2">
                         {navItems.map(item => (
                             <button
                                 key={item.id}
                                 onClick={() => handleTabChange(item.id)}
-                                className={`p-3 rounded-md group relative ${
+                                className={`p-2.5 rounded-lg group relative ${
                                     activeTab === item.id 
                                         ? 'text-blue-600 bg-blue-50' 
-                                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                                } transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50`}
+                                        : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                                } transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-30`}
                                 aria-label={item.label}
                                 title={item.label}
                             >
-                                <FontAwesomeIcon icon={item.icon} size="lg" />
+                                <FontAwesomeIcon icon={item.icon} size="lg" className={`transform transition-transform ${activeTab === item.id ? 'scale-110' : ''}`} />
                                 
                                 {/* Enhanced tooltip */}
-                                <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1 px-2 py-1 text-sm font-medium text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity shadow-lg whitespace-nowrap">
+                                <span className="absolute top-full left-1/2 transform -translate-x-1/2 mb-1.5 px-2.5 py-1 text-xs font-medium text-white bg-gray-800 rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-lg whitespace-nowrap pointer-events-none">
                                     {item.label}
                                 </span>
                             </button>
@@ -80,24 +76,26 @@ export default function TopNav({ user, onLogout }) {
                     </nav>
                     
                     {/* User info and logout on the right */}
-                    <div className="flex items-center space-x-4 py-3">
+                    <div className="flex items-center space-x-3 py-2">
                         {/* User info */}
-                        <div className="flex items-center text-gray-700">
-                            <FontAwesomeIcon icon={faUser} className="mr-2 text-gray-500" />
-                            <span className="text-sm font-medium">{user.name}</span>
+                        <div className="flex items-center text-gray-600 px-2 py-1 rounded-full bg-gray-50 border border-gray-100">
+                            <div className="flex items-center justify-center w-7 h-7 rounded-full bg-blue-100 text-blue-600 mr-2">
+                                <FontAwesomeIcon icon={faUser} className="text-sm" />
+                            </div>
+                            <span className="text-sm font-medium mr-1">{user.name}</span>
                         </div>
                         
                         {/* Logout button */}
                         <button
                             onClick={onLogout}
-                            className="p-3 rounded-md group relative text-gray-500 hover:text-gray-700 hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+                            className="p-2.5 rounded-lg group relative text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-30"
                             aria-label="Logout"
                             title="Logout"
                         >
                             <FontAwesomeIcon icon={faSignOutAlt} size="lg" />
                             
                             {/* Tooltip */}
-                            <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1 px-2 py-1 text-xs font-medium text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity shadow-lg whitespace-nowrap">
+                            <span className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-2.5 py-1 text-xs font-medium text-white bg-gray-800 rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-lg whitespace-nowrap pointer-events-none">
                                 Logout
                             </span>
                         </button>
