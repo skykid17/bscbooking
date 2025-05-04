@@ -6,7 +6,10 @@ import { toast } from 'react-toastify';
 import axios from 'axios';
 
 export default function Dashboard({ user }) {
-    const [activeTab, setActiveTab] = useState('booking');
+    // Get active tab from localStorage (or default to 'booking')
+    const [activeTab, setActiveTab] = useState(() => {
+        return localStorage.getItem('activeTab') || 'booking';
+    });
     const [rooms, setRooms] = useState([]);
     const [selectedRoom, setSelectedRoom] = useState('');
     const [bookings, setBookings] = useState([]);
@@ -83,33 +86,24 @@ export default function Dashboard({ user }) {
         
         fetchRooms();
     }, []);
+
+    // Update active tab when it changes in localStorage
+    useEffect(() => {
+        const handleStorageChange = () => {
+            const newActiveTab = localStorage.getItem('activeTab');
+            if (newActiveTab && newActiveTab !== activeTab) {
+                setActiveTab(newActiveTab);
+            }
+        };
+        
+        window.addEventListener('storage', handleStorageChange);
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+        };
+    }, [activeTab]);
     
     return (
         <div className="bg-white rounded-lg shadow">
-            <div className="border-b">
-                <h2 className="text-lg font-semibold px-4 pt-4">Welcome, {user.name}</h2>
-                <nav className="flex">
-                    <button
-                        className={`px-4 py-3 font-medium text-sm focus:outline-none ${activeTab === 'booking' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-                        onClick={() => setActiveTab('booking')}
-                    >
-                        Book a Room
-                    </button>
-                    <button
-                        className={`px-4 py-3 font-medium text-sm focus:outline-none ${activeTab === 'calendar' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-                        onClick={() => setActiveTab('calendar')}
-                    >
-                        Calendar
-                    </button>
-                    <button
-                        className={`px-4 py-3 font-medium text-sm focus:outline-none ${activeTab === 'mybookings' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-                        onClick={() => setActiveTab('mybookings')}
-                    >
-                        My Bookings
-                    </button>
-                </nav>
-            </div>
-            
             <div className="p-6">
                 {activeTab === 'booking' && (
                     <BookingForm 

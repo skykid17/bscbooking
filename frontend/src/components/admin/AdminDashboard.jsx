@@ -9,7 +9,26 @@ import RoomManagement from './RoomManagement';
 import { toast } from 'react-toastify';
 
 export default function AdminDashboard({ user }) {
-    const [activeTab, setActiveTab] = useState('bookings');
+    // Get active tab from localStorage (or default to 'bookings')
+    const [activeTab, setActiveTab] = useState(() => {
+        return localStorage.getItem('activeTab') || 'bookings';
+    });
+    
+    // Update active tab when it changes in localStorage
+    useEffect(() => {
+        const handleStorageChange = () => {
+            const newActiveTab = localStorage.getItem('activeTab');
+            if (newActiveTab && newActiveTab !== activeTab) {
+                setActiveTab(newActiveTab);
+            }
+        };
+        
+        window.addEventListener('storage', handleStorageChange);
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+        };
+    }, [activeTab]);
+
     const [bookings, setBookings] = useState([]);
     const [filteredBookings, setFilteredBookings] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -265,43 +284,8 @@ export default function AdminDashboard({ user }) {
     
     return (
         <div className="bg-white rounded-lg shadow">
-            <h2 className="text-lg font-semibold px-4 pt-4">Admin Dashboard</h2>
-            <div className="border-b">
-                <nav className="flex flex-wrap">
-                    <button
-                        className={`px-4 py-3 font-medium text-sm focus:outline-none ${activeTab === 'bookings' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-                        onClick={() => setActiveTab('bookings')}
-                    >
-                        Manage Bookings
-                    </button>
-                    <button
-                        className={`px-4 py-3 font-medium text-sm focus:outline-none ${activeTab === 'create-booking' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-                        onClick={() => setActiveTab('create-booking')}
-                    >
-                        Create Booking
-                    </button>
-                    <button
-                        className={`px-4 py-3 font-medium text-sm focus:outline-none ${activeTab === 'calendar' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-                        onClick={() => setActiveTab('calendar')}
-                    >
-                        Calendar
-                    </button>
-                    <button
-                        className={`px-4 py-3 font-medium text-sm focus:outline-none ${activeTab === 'rooms' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-                        onClick={() => setActiveTab('rooms')}
-                    >
-                        Manage Rooms
-                    </button>
-                    <button
-                        className={`px-4 py-3 font-medium text-sm focus:outline-none ${activeTab === 'users' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-                        onClick={() => setActiveTab('users')}
-                    >
-                        Manage Users
-                    </button>
-                </nav>
-            </div>
-            
             <div className="p-6">
+                {/* Conditional rendering based on active tab */}
                 {activeTab === 'create-booking' && (
                     <BookingForm 
                         user={user} 
@@ -333,7 +317,6 @@ export default function AdminDashboard({ user }) {
                     <>
                         <h3 className="text-xl font-semibold mb-6 text-gray-800">All Bookings</h3>
                         
-                        {/* Filter component */}
                         <AdminFilter 
                             users={users}
                             rooms={rooms}
@@ -407,6 +390,13 @@ export default function AdminDashboard({ user }) {
                 
                 {activeTab === 'users' && (
                     <UserManagement users={users} setUsers={setUsers} />
+                )}
+
+                {activeTab === 'home' && (
+                    <div className="text-center py-8">
+                        <h3 className="text-xl font-semibold mb-6 text-gray-800">Welcome to Admin Dashboard</h3>
+                        <p className="text-gray-600">Use the navigation icons above to manage bookings, users, and rooms.</p>
+                    </div>
                 )}
             </div>
         </div>
