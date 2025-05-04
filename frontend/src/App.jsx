@@ -8,6 +8,8 @@ import RegisterPage from './components/auth/RegisterPage';
 import Dashboard from './components/dashboard/Dashboard';
 import AdminDashboard from './components/admin/AdminDashboard';
 import Layout from './components/layout/Layout';
+// Import the background image
+import backgroundImage from './assets/bsc.jpg';
 
 // Create a wrapper component to access navigate inside useEffect
 function AuthInterceptorSetup({ setUser }) {
@@ -60,8 +62,19 @@ function App() {
         pauseOnFocusLoss 
         draggable 
       />
+      {/* Add background as the first element inside the BrowserRouter */}
+      <div className="fixed inset-0 z-[-1]">
+        {/* Background image layer */}
+        <div
+          className="w-full h-full bg-cover bg-center"
+          style={{ 
+            backgroundImage: `url(${backgroundImage})`,
+            opacity: 0.8 
+          }}
+        ></div>
+      </div>
       <Layout user={user} onLogout={handleLogout}>
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <Routes>
               <Route path="/login" element={
