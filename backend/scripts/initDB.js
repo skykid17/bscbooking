@@ -30,7 +30,10 @@ async function initializeDatabase() {
                 username VARCHAR(50) UNIQUE NOT NULL,
                 name VARCHAR(100) NOT NULL,
                 password VARCHAR(100) NOT NULL,
-                role VARCHAR(20) NOT NULL DEFAULT 'user'
+                role VARCHAR(20) NOT NULL DEFAULT 'user',
+                email VARCHAR(100) UNIQUE NOT NULL,
+                is_verified BOOLEAN DEFAULT FALSE,
+                verification_token VARCHAR(255);
             )
         `);
         console.log('Users table created or already exists');
@@ -74,8 +77,6 @@ async function initializeDatabase() {
                 end_datetime DATETIME NOT NULL,
                 series_id VARCHAR(36) DEFAULT NULL,
                 frequency VARCHAR(50) DEFAULT 'single',
-                frequency_start DATETIME DEFAULT NULL,
-                frequency_end DATETIME DEFAULT NULL,
                 created_at DATE NOT NULL,
                 status VARCHAR(20) DEFAULT 'pending', -- pending, approved, rejected
                 approved_at DATETIME DEFAULT NULL,

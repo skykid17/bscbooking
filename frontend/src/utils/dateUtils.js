@@ -19,7 +19,6 @@ export function formatDateTime(dateTimeString) {
 export function formatDateForInput(dateTimeString) {
     if (!dateTimeString) return '';
     const date = new Date(dateTimeString);
-    console.log(date); // Debugging line to check the date object
     const [month, day, year] = date.toLocaleDateString('en-SG', { timeZone: 'Asia/Singapore' }).split('/');
     return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`; // returns "2025-05-03"
 };

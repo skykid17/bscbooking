@@ -48,7 +48,7 @@ export default function AdminDashboard({ user }) {
             try {
                 const token = localStorage.getItem('token');
                 const response = await axios.get(
-                    'http://localhost:5000/api/rooms',
+                    `${VITE_API_URL}/rooms`,
                     {
                         headers: { 
                             'Authorization': `Bearer ${token}`
@@ -80,7 +80,7 @@ export default function AdminDashboard({ user }) {
             const token = localStorage.getItem('token');
             
             const response = await axios.get(
-                'http://localhost:5000/api/bookings',
+                `${VITE_API_URL}/bookings`,
                 {
                     headers: { 
                         'Authorization': `Bearer ${token}`
@@ -136,7 +136,7 @@ export default function AdminDashboard({ user }) {
                 const token = localStorage.getItem('token');
                 
                 const response = await axios.get(
-                    'http://localhost:5000/api/users',
+                    `${VITE_API_URL}/users`,
                     {
                         headers: { 
                             'Authorization': `Bearer ${token}`
@@ -191,8 +191,8 @@ export default function AdminDashboard({ user }) {
             const token = localStorage.getItem('token');
             
             const url = approveType 
-                ? `http://localhost:5000/api/bookings/series/${bookingId}/approve?approveType=${approveType}`
-                : `http://localhost:5000/api/bookings/${bookingId}/approve`;
+                ? `${VITE_API_URL}/bookings/series/${bookingId}/approve?approveType=${approveType}`
+                : `${VITE_API_URL}/bookings/${bookingId}/approve`;
                 
             await axios.put(url, {}, {
                 headers: {
@@ -215,7 +215,7 @@ export default function AdminDashboard({ user }) {
         try {
             const token = localStorage.getItem('token');
             await axios.put(
-                `http://localhost:5000/api/bookings/${bookingId}/reject`,
+                `${VITE_API_URL}/bookings/${bookingId}/reject`,
                 {},
                 {
                     headers: { 
@@ -240,8 +240,8 @@ export default function AdminDashboard({ user }) {
             
             // Set the appropriate URL based on deleteType
             const url = deleteType 
-                ? `http://localhost:5000/api/bookings/series/${bookingId}?deleteType=${deleteType}`
-                : `http://localhost:5000/api/bookings/${bookingId}`;
+                ? `${VITE_API_URL}/bookings/series/${bookingId}?deleteType=${deleteType}`
+                : `${VITE_API_URL}/bookings/${bookingId}`;
                 
             await axios.delete(url, {
                 headers: {

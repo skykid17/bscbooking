@@ -34,6 +34,8 @@ npm install --save-dev nodemon
 
 #### 📁 Create a DB Connection Pool
 
+For the app_password below, login to bsc_digital_gmail, go to https://myaccount.google.com/apppasswords to create an app password.
+
 Create a `backend/.env`:
 
 ```
@@ -45,6 +47,10 @@ DB_NAME=bsc_booking
 
 JWT_SECRET=<your_secret>
 TOKEN_EXPIRE=1d
+
+EMAIL_SERVICE=gmail
+EMAIL_USER=<bsc_digital_gmail>
+EMAIL_PASSWORD=<app_password>
 ```
 
 #### 🛠️ Initialize the Database
@@ -69,7 +75,7 @@ npm install axios react-router-dom tailwindcss @tailwindcss/vite react-toastify 
 
 Create a frontend .env
 ```
-REACT_APP_API_URL=http://localhost:3000/api
+VITE_API_URL=http://localhost:5000/api
 ```
 
 Ensure vite.config.js has following code
