@@ -10,6 +10,7 @@ import AdminDashboard from './components/admin/AdminDashboard';
 import Layout from './components/layout/Layout';
 // Import the background image
 import backgroundImage from './assets/bsc.jpg';
+import VerifyEmail from './components/auth/EmailVerifiedPage';
 
 // Create a wrapper component to access navigate inside useEffect
 function AuthInterceptorSetup({ setUser }) {
@@ -90,7 +91,7 @@ function App() {
                     <Dashboard user={user} />
                 ) : <Navigate to="/login" />
               } />
-              {/* Other routes */}
+              <Route path="/verify-email/:token" element={<VerifyEmail />} />
             </Routes>
           </div>
         </div>

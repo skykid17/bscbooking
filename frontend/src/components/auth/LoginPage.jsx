@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
-export default function LoginPage({ onLoginSuccess, onRegisterClick }) {
+export default function LoginPage({ onLoginSuccess }) {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const navigate = useNavigate();
 
     const handleLogin = async () => {
         setError('');
@@ -80,7 +82,7 @@ export default function LoginPage({ onLoginSuccess, onRegisterClick }) {
                         Don't have an account?{' '}
                         <button 
                             className="text-blue-600 hover:text-blue-800 font-medium"
-                            onClick={onRegisterClick}
+                            onClick={() => navigate('/register')}
                         >
                             Register
                         </button>
