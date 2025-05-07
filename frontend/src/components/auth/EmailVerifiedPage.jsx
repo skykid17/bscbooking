@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 
-export default function VerifyEmail() {
+export default function EmailVerifiedPage() {
     const [status, setStatus] = useState('verifying');
     const [message, setMessage] = useState('Verifying your email...');
     const navigate = useNavigate();
@@ -17,7 +17,7 @@ export default function VerifyEmail() {
             }
             
             try {
-                const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+                const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
                 const response = await axios.get(`${apiUrl}/auth/verify-email/${token}`);
                 
                 if (response.data && response.data.success) {
@@ -32,7 +32,6 @@ export default function VerifyEmail() {
                 setMessage(err.response?.data?.message || 'Verification failed. Please try again.');
             }
         };
-        
         verifyEmail();
     }, [token]);
     
