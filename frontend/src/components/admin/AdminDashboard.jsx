@@ -8,6 +8,8 @@ import CalendarView from '../calendar/CalendarView';
 import RoomManagement from './RoomManagement';
 import { toast } from 'react-toastify';
 
+const VITE_API_URL = import.meta.env.VITE_API_URL;
+
 export default function AdminDashboard({ user }) {
     // Get active tab from localStorage (or default to 'bookings')
     const [activeTab, setActiveTab] = useState(() => {

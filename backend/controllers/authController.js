@@ -202,7 +202,7 @@ const pool = require('../config/db');
             // Update user to verified
             const [result] = await pool.query(
                 'UPDATE users SET is_verified = true, verification_token = NULL WHERE id = ?',
-                [user]
+                [user[0].id]
             );
             console.log('[VERIFY EMAIL] Update result:', result);
 
