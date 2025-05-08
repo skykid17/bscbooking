@@ -16,8 +16,8 @@ const transporter = nodemailer.createTransport({
 // Get all users
 exports.getAllUsers = async (req, res) => {
     try {
-        const [users] = await pool.query('SELECT id, username, name, email, role, is_verified FROM users');
-        res.json(users);
+        const result = await pool.query('SELECT id, username, name, email, role, is_verified FROM users');
+        res.json(result.rows);
     } catch (error) {
         console.error('Error fetching users:', error);
         res.status(500).json({ message: 'Server error while fetching users' });
@@ -29,12 +29,11 @@ exports.getUserById = async (req, res) => {
     const { id } = req.params;
     
     try {
-        const [user] = await pool.query('SELECT id, username, name, email, role, is_verified FROM users WHERE id = ?', [id]);
-        
+        const result = await pool.query('SELECT id, username, name, email, role, is_verified FROM users WHERE id = $1', [id]);
+        const user = result.rows;
         if (user.length === 0) {
             return res.status(404).json({ message: 'User not found' });
         }
-        
         res.json(user[0]);
     } catch (error) {
         console.error('Error fetching user:', error);
@@ -63,13 +62,15 @@ exports.createUser = async (req, res) => {
     
     try {
         // Check if username already exists
-        const [existingUser] = await pool.query('SELECT id FROM users WHERE username = ?', [username]);
+        const resultUser = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
+        const existingUser = resultUser.rows;
         if (existingUser.length > 0) {
             return res.status(409).json({ message: 'Username already exists' });
         }
         
         // Check if email already exists
-        const [existingEmail] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
+        const resultEmail = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+        const existingEmail = resultEmail.rows;
         if (existingEmail.length > 0) {
             return res.status(409).json({ message: 'Email already exists' });
         }
@@ -81,7 +82,7 @@ exports.createUser = async (req, res) => {
         const is_verified = userRole === 'admin' ? true : false; // Admin users are auto-verified
         
         await pool.query(
-            'INSERT INTO users (id, username, name, email, password, role, verification_token, is_verified) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO users (id, username, name, email, password, role, verification_token, is_verified) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
             [id, username, name, email, hashedPassword, userRole, verificationToken, is_verified]
         );
         
@@ -94,7 +95,7 @@ exports.createUser = async (req, res) => {
         const logId = uuidv4();
         const action = `Admin ${req.user.username} created new user ${username} with role ${userRole}`;
         await pool.query(
-            'INSERT INTO logs (id, timestamp, action) VALUES (?, NOW(), ?)',
+            'INSERT INTO logs (id, timestamp, action) VALUES ($1, NOW(), $2)',
             [logId, action]
         );
         
@@ -139,14 +140,16 @@ exports.updateUser = async (req, res) => {
     
     try {
         // Check if user exists
-        const [existingUser] = await pool.query('SELECT * FROM users WHERE id = ?', [id]);
+        const resultUser = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+        const existingUser = resultUser.rows;
         
         if (existingUser.length === 0) {
             return res.status(404).json({ message: 'User not found' });
         }
         
         // Check if username already exists for another user
-        const [usernameExists] = await pool.query('SELECT id FROM users WHERE username = ? AND id != ?', [username, id]);
+        const resultUsername = await pool.query('SELECT id FROM users WHERE username = $1 AND id != $2', [username, id]);
+        const usernameExists = resultUsername.rows;
         
         if (usernameExists.length > 0) {
             return res.status(409).json({ message: 'Username already exists' });
@@ -154,21 +157,24 @@ exports.updateUser = async (req, res) => {
         
         // Check if email already exists for another user
         if (email && email !== existingUser[0].email) {
-            const [emailExists] = await pool.query('SELECT id FROM users WHERE email = ? AND id != ?', [email, id]);
+            const resultEmail = await pool.query('SELECT id FROM users WHERE email = $1 AND id != $2', [email, id]);
+            const emailExists = resultEmail.rows;
             if (emailExists.length > 0) {
                 return res.status(409).json({ message: 'Email already exists' });
             }
         }
         
         // Update user info
-        let query = 'UPDATE users SET username = ?, name = ?';
+        let query = 'UPDATE users SET username = $1, name = $2';
         let params = [username, name];
+        let paramIndex = 3;
         
         // Add email if provided and different
         if (email && email !== existingUser[0].email) {
-            query += ', email = ?, is_verified = false, verification_token = ?';
+            query += `, email = $${paramIndex}, is_verified = false, verification_token = $${paramIndex + 1}`;
             const newVerificationToken = crypto.randomBytes(32).toString('hex');
             params.push(email, newVerificationToken);
+            paramIndex += 2;
             
             // Send new verification email
             await sendVerificationEmail(email, newVerificationToken);
@@ -176,18 +182,20 @@ exports.updateUser = async (req, res) => {
         
         // Add role if provided
         if (role) {
-            query += ', role = ?';
+            query += `, role = $${paramIndex}`;
             params.push(role);
+            paramIndex++;
         }
         
         // Add password if provided
         if (password) {
-            query += ', password = ?';
+            query += `, password = $${paramIndex}`;
             const hashedPassword = await bcrypt.hash(password, 10);
             params.push(hashedPassword);
+            paramIndex++;
         }
         
-        query += ' WHERE id = ?';
+        query += ` WHERE id = $${paramIndex}`;
         params.push(id);
         
         await pool.query(query, params);
@@ -196,7 +204,7 @@ exports.updateUser = async (req, res) => {
         const logId = uuidv4();
         const action = `Admin ${req.user.username} updated user ${username}`;
         await pool.query(
-            'INSERT INTO logs (id, timestamp, action) VALUES (?, NOW(), ?)',
+            'INSERT INTO logs (id, timestamp, action) VALUES ($1, NOW(), $2)',
             [logId, action]
         );
         
@@ -216,7 +224,8 @@ exports.deleteUser = async (req, res) => {
     
     try {
         // Check if user exists and get their info for logging
-        const [existingUser] = await pool.query('SELECT username FROM users WHERE id = ?', [id]);
+        const resultUser = await pool.query('SELECT username FROM users WHERE id = $1', [id]);
+        const existingUser = resultUser.rows;
         
         if (existingUser.length === 0) {
             return res.status(404).json({ message: 'User not found' });
@@ -227,13 +236,13 @@ exports.deleteUser = async (req, res) => {
             return res.status(400).json({ message: 'You cannot delete your own account' });
         }
         
-        await pool.query('DELETE FROM users WHERE id = ?', [id]);
+        await pool.query('DELETE FROM users WHERE id = $1', [id]);
         
         // Log the action
         const logId = uuidv4();
         const action = `Admin ${req.user.username} deleted user ${existingUser[0].username}`;
         await pool.query(
-            'INSERT INTO logs (id, timestamp, action) VALUES (?, NOW(), ?)',
+            'INSERT INTO logs (id, timestamp, action) VALUES ($1, NOW(), $2)',
             [logId, action]
         );
         
@@ -281,10 +290,11 @@ exports.verifyEmail = async (req, res) => {
     
     try {
         // Find user with this verification token
-        const [user] = await pool.query(
-            'SELECT id FROM users WHERE verification_token = ?',
+        const result = await pool.query(
+            'SELECT id FROM users WHERE verification_token = $1',
             [token]
         );
+        const user = result.rows;
         
         if (user.length === 0) {
             return res.status(404).json({ message: 'Invalid verification token' });
@@ -292,7 +302,7 @@ exports.verifyEmail = async (req, res) => {
         
         // Update user to verified
         await pool.query(
-            'UPDATE users SET is_verified = true, verification_token = NULL WHERE id = ?',
+            'UPDATE users SET is_verified = true, verification_token = NULL WHERE id = $1',
             [user[0].id]
         );
         
@@ -300,7 +310,7 @@ exports.verifyEmail = async (req, res) => {
         const logId = uuidv4();
         const action = `User email verified with id ${user[0].id}`;
         await pool.query(
-            'INSERT INTO logs (id, timestamp, action) VALUES (?, NOW(), ?)',
+            'INSERT INTO logs (id, timestamp, action) VALUES ($1, NOW(), $2)',
             [logId, action]
         );
         
@@ -324,10 +334,11 @@ exports.resendVerificationEmail = async (req, res) => {
     
     try {
         // Check if user exists and is not verified
-        const [user] = await pool.query(
-            'SELECT id, is_verified FROM users WHERE email = ?',
+        const result = await pool.query(
+            'SELECT id, is_verified FROM users WHERE email = $1',
             [email]
         );
+        const user = result.rows;
         
         if (user.length === 0) {
             // Don't reveal that the email doesn't exist for security
@@ -343,7 +354,7 @@ exports.resendVerificationEmail = async (req, res) => {
         
         // Update user with new token
         await pool.query(
-            'UPDATE users SET verification_token = ? WHERE id = ?',
+            'UPDATE users SET verification_token = $1 WHERE id = $2',
             [verificationToken, user[0].id]
         );
         

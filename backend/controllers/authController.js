@@ -58,13 +58,15 @@ const pool = require('../config/db');
 
         try {
             // Check username uniqueness
-            const [existingUsername] = await pool.query('SELECT * FROM users WHERE username = ?', [username]);
+            const resultUsername = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+            const existingUsername = resultUsername.rows;
             if (existingUsername.length > 0) {
                 return res.status(400).json({ message: "Username already exists." });
             }
             
             // Check email uniqueness
-            const [existingEmail] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
+            const resultEmail = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+            const existingEmail = resultEmail.rows;
             if (existingEmail.length > 0) {
                 return res.status(400).json({ message: "Email already exists." });
             }
@@ -74,7 +76,7 @@ const pool = require('../config/db');
             const verificationToken = crypto.randomBytes(32).toString('hex');
             
             await pool.query(
-                'INSERT INTO users (id, username, name, password, email, role, is_verified, verification_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
+                'INSERT INTO users (id, username, name, password, email, role, is_verified, verification_token) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)', 
                 [id, username, name, hashedPassword, email, role || 'user', false, verificationToken]
             );
             
@@ -101,7 +103,8 @@ const pool = require('../config/db');
         }
 
         try {
-            const [user] = await pool.query('SELECT * FROM users WHERE username = ?', [username]);
+            const resultUser = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+            const user = resultUser.rows;
             if (user.length === 0) {
                 return res.status(400).json({ message: "Invalid credentials." });
             }
@@ -188,10 +191,11 @@ const pool = require('../config/db');
         
         try {
             // Find user with this verification token
-            const [user] = await pool.query(
-                'SELECT id FROM users WHERE verification_token = ?',
+            const result = await pool.query(
+                'SELECT id FROM users WHERE verification_token = $1',
                 [token]
             );
+            const user = result.rows;
             console.log('[VERIFY EMAIL] User lookup result:', user);
 
             if (!user || user.length === 0) {
@@ -200,13 +204,13 @@ const pool = require('../config/db');
             }
             
             // Update user to verified
-            const [result] = await pool.query(
-                'UPDATE users SET is_verified = true WHERE id = ?',
+            const updateResult = await pool.query(
+                'UPDATE users SET is_verified = true WHERE id = $1',
                 [user[0].id]
             );
-            console.log('[VERIFY EMAIL] Update result:', result);
+            console.log('[VERIFY EMAIL] Update result:', updateResult);
 
-            if (result.affectedRows === 0) {
+            if (updateResult.rowCount === 0) {
                 console.log('[VERIFY EMAIL] Update failed, no rows affected');
                 return res.status(500).json({ message: 'Failed to update verification status', success: false });
             }
@@ -232,10 +236,11 @@ const pool = require('../config/db');
         
         try {
             // Check if user exists and is not verified
-            const [user] = await pool.query(
-                'SELECT id, is_verified FROM users WHERE email = ?',
+            const resultUser = await pool.query(
+                'SELECT id, is_verified FROM users WHERE email = $1',
                 [email]
             );
+            const user = resultUser.rows;
             
             if (user.length === 0) {
                 // Don't reveal that the email doesn't exist for security
@@ -251,7 +256,7 @@ const pool = require('../config/db');
             
             // Update user with new token
             await pool.query(
-                'UPDATE users SET verification_token = ? WHERE id = ?',
+                'UPDATE users SET verification_token = $1 WHERE id = $2',
                 [verificationToken, user[0].id]
             );
             

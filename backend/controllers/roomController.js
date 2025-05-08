@@ -4,7 +4,8 @@ const { v4: uuidv4 } = require('uuid');
 // Get all rooms
 exports.getAllRooms = async (req, res) => {
     try {
-        const [rooms] = await pool.query('SELECT * FROM rooms');
+        const result = await pool.query('SELECT * FROM rooms');
+        const rooms = result.rows;
         res.json(rooms);
     } catch (error) {
         console.error('Error fetching rooms:', error);
@@ -17,7 +18,8 @@ exports.getRoomById = async (req, res) => {
     const { id } = req.params;
     
     try {
-        const [room] = await pool.query('SELECT * FROM rooms WHERE id = ?', [id]);
+        const result = await pool.query('SELECT * FROM rooms WHERE id = $1', [id]);
+        const room = result.rows;
         
         if (room.length === 0) {
             return res.status(404).json({ message: 'Room not found' });
@@ -39,8 +41,8 @@ exports.createRoom = async (req, res) => {
     }
     
     try {
-        // Check if room already exists
-        const [existingRoom] = await pool.query('SELECT * FROM rooms WHERE name = ?', [name]);
+        const result = await pool.query('SELECT * FROM rooms WHERE name = $1', [name]);
+        const existingRoom = result.rows;
         
         if (existingRoom.length > 0) {
             return res.status(409).json({ message: 'A room with this name already exists' });
@@ -49,26 +51,20 @@ exports.createRoom = async (req, res) => {
         const id = uuidv4();
         
         await pool.query(
-            'INSERT INTO rooms (id, name, floor, pax) VALUES (?, ?, ?, ?)',
+            'INSERT INTO rooms (id, name, floor, pax) VALUES ($1, $2, $3, $4)',
             [id, name, floor, pax]
         );
         
-        // Log the action
         const logId = uuidv4();
         const action = `Admin ${req.user.username} created new room "${name}"`;
         await pool.query(
-            'INSERT INTO logs (id, timestamp, action) VALUES (?, NOW(), ?)',
+            'INSERT INTO logs (id, timestamp, action) VALUES ($1, NOW(), $2)',
             [logId, action]
         );
         
         res.status(201).json({
             message: 'Room created successfully',
-            room: {
-                id,
-                name,
-                floor,
-                pax
-            }
+            room: { id, name, floor, pax }
         });
     } catch (error) {
         console.error('Error creating room:', error);
@@ -86,48 +82,38 @@ exports.updateRoom = async (req, res) => {
     }
     
     try {
-        // Check if room exists
-        const [existingRoom] = await pool.query('SELECT * FROM rooms WHERE id = ?', [id]);
+        const result = await pool.query('SELECT * FROM rooms WHERE id = $1', [id]);
+        const existingRoom = result.rows;
         
         if (existingRoom.length === 0) {
             return res.status(404).json({ message: 'Room not found' });
         }
         
-        // Check if new name already exists for another room
-        const [roomWithName] = await pool.query('SELECT * FROM rooms WHERE name = ? AND id != ?', [name, id]);
+        const resultName = await pool.query('SELECT * FROM rooms WHERE name = $1 AND id != $2', [name, id]);
+        const roomWithName = resultName.rows;
         
         if (roomWithName.length > 0) {
             return res.status(409).json({ message: 'A room with this name already exists' });
         }
         
         await pool.query(
-            'UPDATE rooms SET name = ?, floor = ?, pax = ? WHERE id = ?',
+            'UPDATE rooms SET name = $1, floor = $2, pax = $3 WHERE id = $4',
             [name, floor, pax, id]
         );
         
-        // Update any bookings referencing this room
         await pool.query(
-            'UPDATE bookings SET room = ? WHERE room = ?',
+            'UPDATE bookings SET room = $1 WHERE room = $2',
             [name, existingRoom[0].name]
         );
-        
-        // Log the action
+
         const logId = uuidv4();
         const action = `Admin ${req.user.username} updated room "${existingRoom[0].name}" to "${name}"`;
         await pool.query(
-            'INSERT INTO logs (id, timestamp, action) VALUES (?, NOW(), ?)',
+            'INSERT INTO logs (id, timestamp, action) VALUES ($1, NOW(), $2)',
             [logId, action]
         );
-        
-        res.json({ 
-            message: 'Room updated successfully',
-            room: {
-                id,
-                name,
-                floor,
-                pax
-            }
-        });
+
+        res.json({ message: 'Room updated successfully', room: { id, name, floor, pax } });
     } catch (error) {
         console.error('Error updating room:', error);
         res.status(500).json({ message: 'Server error while updating room' });
@@ -139,27 +125,23 @@ exports.deleteRoom = async (req, res) => {
     const { id } = req.params;
     
     try {
-        // Check if room exists
-        const [existingRoom] = await pool.query('SELECT * FROM rooms WHERE id = ?', [id]);
-        
+        const result = await pool.query('SELECT * FROM rooms WHERE id = $1', [id]);
+        const existingRoom = result.rows;
+
         if (existingRoom.length === 0) {
             return res.status(404).json({ message: 'Room not found' });
         }
-        
-        // Delete room
-        await pool.query('DELETE FROM rooms WHERE id = ?', [id]);
-        
-        // Delete all bookings for this room
-        await pool.query('DELETE FROM bookings WHERE name = ?', [existingRoom[0].name]);
-        
-        // Log the action
+
+        await pool.query('DELETE FROM rooms WHERE id = $1', [id]);
+        await pool.query('DELETE FROM bookings WHERE room = $1', [existingRoom[0].name]);
+
         const logId = uuidv4();
         const action = `Admin ${req.user.username} deleted room "${existingRoom[0].name}"`;
         await pool.query(
-            'INSERT INTO logs (id, timestamp, action) VALUES (?, NOW(), ?)',
+            'INSERT INTO logs (id, timestamp, action) VALUES ($1, NOW(), $2)',
             [logId, action]
         );
-        
+
         res.json({ message: 'Room deleted successfully' });
     } catch (error) {
         console.error('Error deleting room:', error);

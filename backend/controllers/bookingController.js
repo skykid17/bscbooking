@@ -22,29 +22,46 @@ exports.createBooking = async (req, res) => {
         return res.status(403).json({ message: "You can only create bookings for yourself" });
     }
 
-    if (!room || !startDateTime || !endDateTime || !eventName || !userId) {
-        console.log("Missing required fields:", { room, startDateTime, endDateTime, eventName, userId });
-        return res.status(400).json({ message: "Required fields are missing" });
+    // Enhanced validation to check for empty strings as well
+    if (!room || room === '' || !startDateTime || !endDateTime || !eventName || eventName === '' || !userId) {
+        console.log("Missing or empty required fields:", { 
+            room: room || '(empty)', 
+            startDateTime, 
+            endDateTime, 
+            eventName: eventName || '(empty)', 
+            userId 
+        });
+        return res.status(400).json({ message: "Required fields are missing or empty" });
     }
 
     try {
+        // Additional debug logging
+        console.log("Processing booking with validated fields:", {
+            room,
+            startDateTime,
+            endDateTime,
+            eventName,
+            userId,
+            frequency
+        });
+        
         const createdAt = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
         
         // If admin is creating, auto-approve the booking
         const status = isAdmin ? 'approved' : 'pending';
         
         // Check for time conflicts
-        const [conflicts] = await pool.query(
+        const conflictsResult = await pool.query(
             `SELECT * FROM bookings 
-            WHERE room = ? AND status != 'rejected'
+            WHERE room = $1 AND status != 'rejected'
             AND NOT (
-                end_datetime <= ? OR 
-                start_datetime >= ?
+                end_datetime <= $2 OR 
+                start_datetime >= $3
             )`,
             [room, startDateTime, endDateTime]
         );
 
-        if (conflicts.length > 0) {
+        if (conflictsResult.rows.length > 0) {
             return res.status(409).json({ message: "This time slot conflicts with an existing booking" });
         }
 
@@ -57,7 +74,7 @@ exports.createBooking = async (req, res) => {
             await pool.query(
                 `INSERT INTO repeat_series 
                 (id, created_by, repeat_type, repeat_interval, repeat_on, ends_after, ends_on, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+                VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
                 [
                     seriesId, 
                     userId, 
@@ -80,7 +97,7 @@ exports.createBooking = async (req, res) => {
                 `INSERT INTO bookings 
                 (id, user_id, user_name, room, event_name, start_datetime, end_datetime, 
                  frequency, created_at, status) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
                 [id, userId, userName, room, eventName, startDateTime, endDateTime, 
                  frequency, createdAt, status]
             );            
@@ -110,12 +127,12 @@ exports.createBooking = async (req, res) => {
                 await pool.query(
                     `INSERT INTO bookings 
                     (id, user_id, user_name, room, event_name, start_datetime, end_datetime, series_id, frequency, created_at, approved_at, approved_by, status) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), ?, ?)`,
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW(), $10, $11)`,
                     [
                         id, userId, userName, room, eventName,
                         occurrence.startDateTime, occurrence.endDateTime,
                         seriesId, frequency,
-                        approvedBy, status // Make sure these two are included
+                        approvedBy, status
                     ]
                 );
 
@@ -142,7 +159,7 @@ exports.createBooking = async (req, res) => {
             const logId = uuidv4();
             const action = `Admin ${req.user.username} created ${status} booking for ${userName}`;
             await pool.query(
-                `INSERT INTO logs (id, timestamp, action) VALUES (?, NOW(), ?)`,
+                `INSERT INTO logs (id, timestamp, action) VALUES ($1, NOW(), $2)`,
                 [logId, action]
             );
         }
@@ -293,12 +310,12 @@ exports.getBookings = async (req, res) => {
         let params = [];
 
         if (user) {
-            conditions.push('user_id = ?');
+            conditions.push('user_id = $1');
             params.push(user);
         }
 
         if (room) {
-            conditions.push('room = ?');
+            conditions.push('room = $2');
             params.push(room);
         }
 
@@ -307,12 +324,12 @@ exports.getBookings = async (req, res) => {
             const dayStart = new Date(date + 'T00:00:00').toISOString();
             const dayEnd = new Date(date + 'T23:59:59.999Z').toISOString();
 
-            conditions.push('start_datetime <= ? AND end_datetime >= ?');
+            conditions.push('start_datetime <= $3 AND end_datetime >= $4');
             params.push(dayEnd, dayStart);
         }
 
         if (status) {
-            conditions.push('status = ?');
+            conditions.push('status = $5');
             params.push(status);
         }
 
@@ -322,9 +339,9 @@ exports.getBookings = async (req, res) => {
 
         query += ' ORDER BY created_at DESC';
 
-        const [bookings] = await pool.query(query, params);
+        const bookingsResult = await pool.query(query, params);
 
-        res.json(bookings);
+        res.json(bookingsResult.rows);
     } catch (error) {
         console.error("Error fetching bookings:", error);
         res.status(500).json({ message: "Server error while fetching bookings" });
@@ -341,11 +358,11 @@ exports.getUserBookings = async (req, res) => {
     }
 
     try {
-        const [bookings] = await pool.query(
-            'SELECT * FROM bookings WHERE user_id = ? ORDER BY created_at DESC',
+        const bookingsResult = await pool.query(
+            'SELECT * FROM bookings WHERE user_id = $1 ORDER BY created_at DESC',
             [userId]
         );
-        res.json(bookings);
+        res.json(bookingsResult.rows);
     } catch (error) {
         console.error("Error fetching user bookings:", error);
         res.status(500).json({ message: "Server error while fetching user bookings" });
@@ -357,18 +374,18 @@ exports.getBookingById = async (req, res) => {
     const { id } = req.params;
     
     try {
-        const [booking] = await pool.query('SELECT * FROM bookings WHERE id = ?', [id]);
+        const bookingResult = await pool.query('SELECT * FROM bookings WHERE id = $1', [id]);
         
-        if (booking.length === 0) {
+        if (bookingResult.rows.length === 0) {
             return res.status(404).json({ message: "Booking not found" });
         }
         
         // Only allow users to access their own bookings, unless they're admin
-        if (booking[0].user_id !== req.user.id && req.user.role !== 'admin') {
+        if (bookingResult.rows[0].user_id !== req.user.id && req.user.role !== 'admin') {
             return res.status(403).json({ message: "You can only access your own bookings" });
         }
         
-        res.json(booking[0]);
+        res.json(bookingResult.rows[0]);
     } catch (error) {
         console.error("Error fetching booking:", error);
         res.status(500).json({ message: "Server error while fetching booking" });
@@ -388,14 +405,14 @@ exports.updateBooking = async (req, res) => {
 
     try {
         // Check if booking exists
-        const [existingBooking] = await pool.query('SELECT * FROM bookings WHERE id = ?', [id]);
+        const existingBookingResult = await pool.query('SELECT * FROM bookings WHERE id = $1', [id]);
         
-        if (existingBooking.length === 0) {
+        if (existingBookingResult.rows.length === 0) {
             return res.status(404).json({ message: "Booking not found" });
         }
 
         // Check if user owns the booking or is an admin
-        const booking = existingBooking[0];
+        const booking = existingBookingResult.rows[0];
         if (booking.user_id !== req.user.id && req.user.role !== 'admin') {
             return res.status(403).json({ message: "You can only update your own bookings" });
         }
@@ -406,26 +423,26 @@ exports.updateBooking = async (req, res) => {
         }
 
         // Check for time conflicts (excluding this booking)
-        const [conflicts] = await pool.query(
+        const conflictsResult = await pool.query(
             `SELECT * FROM bookings 
-             WHERE room = ? AND id != ? AND status != 'rejected'
-             AND NOT (end_datetime <= ? OR start_datetime >= ?)`,
+             WHERE room = $1 AND id != $2 AND status != 'rejected'
+             AND NOT (end_datetime <= $3 OR start_datetime >= $4)`,
             [room, id, start_datetime, end_datetime]
         );
 
-        if (conflicts.length > 0) {
+        if (conflictsResult.rows.length > 0) {
             return res.status(409).json({ message: "This time slot conflicts with an existing booking" });
         }
 
         // Update the booking with new values
         await pool.query(
             `UPDATE bookings SET
-             room = ?,
-             event_name = ?,
-             start_datetime = ?,
-             end_datetime = ?,
-             frequency = ?
-             WHERE id = ?`,
+             room = $1,
+             event_name = $2,
+             start_datetime = $3,
+             end_datetime = $4,
+             frequency = $5
+             WHERE id = $6`,
             [room, eventName, start_datetime, end_datetime, frequency, id]
         );
 
@@ -434,7 +451,7 @@ exports.updateBooking = async (req, res) => {
             const logId = uuidv4();
             const action = `Admin ${req.user.username} updated booking ${id} for ${booking.user_name}`;
             await pool.query(
-                `INSERT INTO logs (id, timestamp, action) VALUES (?, NOW(), ?)`,
+                `INSERT INTO logs (id, timestamp, action) VALUES ($1, NOW(), $2)`,
                 [logId, action]
             );
         }
@@ -456,14 +473,14 @@ exports.updateSeriesBooking = async (req, res) => {
 
     try {
         // Check if booking exists
-        const [existingBooking] = await pool.query('SELECT * FROM bookings WHERE id = ?', [id]);
+        const existingBookingResult = await pool.query('SELECT * FROM bookings WHERE id = $1', [id]);
         
-        if (existingBooking.length === 0) {
+        if (existingBookingResult.rows.length === 0) {
             return res.status(404).json({ message: "Booking not found" });
         }
 
         // Check if user owns the booking or is an admin
-        const booking = existingBooking[0];
+        const booking = existingBookingResult.rows[0];
         if (booking.user_id !== req.user.id && req.user.role !== 'admin') {
             return res.status(403).json({ message: "You can only update your own bookings" });
         }
@@ -504,7 +521,7 @@ exports.updateSeriesBooking = async (req, res) => {
             const logId = uuidv4();
             const action = `Admin ${req.user.username} updated booking ${id} for ${booking.user_name}`;
             await pool.query(
-                `INSERT INTO logs (id, timestamp, action) VALUES (?, NOW(), ?)`,
+                `INSERT INTO logs (id, timestamp, action) VALUES ($1, NOW(), $2)`,
                 [logId, action]
             );
         }
@@ -520,12 +537,12 @@ exports.updateSeriesBooking = async (req, res) => {
 async function updateSingleBooking(id, room, startDateTime, endDateTime, eventName, frequency) {
     await pool.query(
         `UPDATE bookings SET
-         room = ?,
-         event_name = ?,
-         start_datetime = ?,
-         end_datetime = ?,
-         frequency = ?
-         WHERE id = ?`,
+         room = $1,
+         event_name = $2,
+         start_datetime = $3,
+         end_datetime = $4,
+         frequency = $5
+         WHERE id = $6`,
         [room, eventName, startDateTime, endDateTime, frequency, id]
     );
 }
@@ -534,12 +551,12 @@ async function updateSingleBooking(id, room, startDateTime, endDateTime, eventNa
 async function updateFutureBookings(booking, room, startDateTime, endDateTime, eventName, frequency) {
     await pool.query(
         `UPDATE bookings SET
-         room = ?,
-         event_name = ?,
-         start_datetime = ?,
-         end_datetime = ?,
-         frequency = ?
-         WHERE series_id = ? AND start_datetime >= ?`,
+         room = $1,
+         event_name = $2,
+         start_datetime = $3,
+         end_datetime = $4,
+         frequency = $5
+         WHERE series_id = $6 AND start_datetime >= $7`,
         [room, eventName, startDateTime, endDateTime, frequency, booking.series_id, booking.start_datetime]
     );
 }
@@ -548,12 +565,12 @@ async function updateFutureBookings(booking, room, startDateTime, endDateTime, e
 async function updateAllSeriesBookings(seriesId, room, startDateTime, endDateTime, eventName, frequency) {
     await pool.query(
         `UPDATE bookings SET
-         room = ?,
-         event_name = ?,
-         start_datetime = ?,
-         end_datetime = ?,
-         frequency = ?
-         WHERE series_id = ?`,
+         room = $1,
+         event_name = $2,
+         start_datetime = $3,
+         end_datetime = $4,
+         frequency = $5
+         WHERE series_id = $6`,
         [room, eventName, startDateTime, endDateTime, frequency, seriesId]
     );
 }
@@ -564,26 +581,26 @@ exports.deleteBooking = async (req, res) => {
     
     try {
         // Check if booking exists
-        const [existingBooking] = await pool.query('SELECT * FROM bookings WHERE id = ?', [id]);
+        const existingBookingResult = await pool.query('SELECT * FROM bookings WHERE id = $1', [id]);
         
-        if (existingBooking.length === 0) {
+        if (existingBookingResult.rows.length === 0) {
             return res.status(404).json({ message: "Booking not found" });
         }
 
         // Check if user owns the booking or is an admin
-        const booking = existingBooking[0];
+        const booking = existingBookingResult.rows[0];
         if (booking.user_id !== req.user.id && req.user.role !== 'admin') {
             return res.status(403).json({ message: "You can only delete your own bookings" });
         }
 
-        const [result] = await pool.query('DELETE FROM bookings WHERE id = ?', [id]);
+        const result = await pool.query('DELETE FROM bookings WHERE id = $1', [id]);
         
         // Log admin deletions
         if (req.user.role === 'admin' && req.user.id !== booking.user_id) {
             const logId = uuidv4();
             const action = `Admin ${req.user.username} deleted booking ${id} for ${booking.user_name}`;
             await pool.query(
-                `INSERT INTO logs (id, timestamp, action) VALUES (?, NOW(), ?)`,
+                `INSERT INTO logs (id, timestamp, action) VALUES ($1, NOW(), $2)`,
                 [logId, action]
             );
         }
@@ -602,14 +619,14 @@ exports.deleteSeriesBooking = async (req, res) => {
     
     try {
         // Check if booking exists
-        const [existingBooking] = await pool.query('SELECT * FROM bookings WHERE id = ?', [id]);
+        const existingBookingResult = await pool.query('SELECT * FROM bookings WHERE id = $1', [id]);
         
-        if (existingBooking.length === 0) {
+        if (existingBookingResult.rows.length === 0) {
             return res.status(404).json({ message: "Booking not found" });
         }
 
         // Check if user owns the booking or is an admin
-        const booking = existingBooking[0];
+        const booking = existingBookingResult.rows[0];
         if (booking.user_id !== req.user.id && req.user.role !== 'admin') {
             return res.status(403).json({ message: "You can only delete your own bookings" });
         }
@@ -618,15 +635,15 @@ exports.deleteSeriesBooking = async (req, res) => {
 
         // Handle different delete types for series bookings
         if (deleteType === 'this') {
-            await pool.query('DELETE FROM bookings WHERE id = ?', [id]);
+            await pool.query('DELETE FROM bookings WHERE id = $1', [id]);
         } else if (deleteType === 'future') {
             await pool.query(
-                'DELETE FROM bookings WHERE series_id = ? AND start_datetime >= ?', 
+                'DELETE FROM bookings WHERE series_id = $1 AND start_datetime >= $2', 
                 [booking.series_id, booking.start_datetime]
             );
         } else if (deleteType === 'all') {
-            await pool.query('DELETE FROM bookings WHERE series_id = ?', [booking.series_id]);
-            await pool.query('DELETE FROM repeat_series WHERE id = ?', [booking.series_id]);
+            await pool.query('DELETE FROM bookings WHERE series_id = $1', [booking.series_id]);
+            await pool.query('DELETE FROM repeat_series WHERE id = $1', [booking.series_id]);
         } else {
             return res.status(400).json({ message: "Invalid delete type" });
         }
@@ -636,7 +653,7 @@ exports.deleteSeriesBooking = async (req, res) => {
             const logId = uuidv4();
             const action = `Admin ${req.user.username} deleted booking ${id} for ${booking.user_name}`;
             await pool.query(
-                `INSERT INTO logs (id, timestamp, action) VALUES (?, NOW(), ?)`,
+                `INSERT INTO logs (id, timestamp, action) VALUES ($1, NOW(), $2)`,
                 [logId, action]
             );
         }
@@ -653,22 +670,22 @@ exports.approveBooking = async (req, res) => {
     const { id } = req.params;
     
     try {
-        const [existingBooking] = await pool.query('SELECT * FROM bookings WHERE id = ?', [id]);
+        const existingBookingResult = await pool.query('SELECT * FROM bookings WHERE id = $1', [id]);
         
-        if (existingBooking.length === 0) {
+        if (existingBookingResult.rows.length === 0) {
             return res.status(404).json({ message: "Booking not found" });
         }
         
         await pool.query(
-            `UPDATE bookings SET status = 'approved', approved_at = NOW(), approved_by = ? WHERE id = ?`,
+            `UPDATE bookings SET status = 'approved', approved_at = NOW(), approved_by = $1 WHERE id = $2`,
             [req.user.id, id]
         );
         
         // Log the approval
         const logId = uuidv4();
-        const action = `Admin ${req.user.username} approved booking ${id} for ${existingBooking[0].user_name}`;
+        const action = `Admin ${req.user.username} approved booking ${id} for ${existingBookingResult.rows[0].user_name}`;
         await pool.query(
-            `INSERT INTO logs (id, timestamp, action) VALUES (?, NOW(), ?)`,
+            `INSERT INTO logs (id, timestamp, action) VALUES ($1, NOW(), $2)`,
             [logId, action]
         );
     } catch (error) {
@@ -683,32 +700,32 @@ exports.approveSeriesBooking = async (req, res) => {
     const { approveType } = req.query; // 'this', 'future', or 'all'
     
     try {
-        const [existingBooking] = await pool.query('SELECT * FROM bookings WHERE id = ?', [id]);
+        const existingBookingResult = await pool.query('SELECT * FROM bookings WHERE id = $1', [id]);
         
-        if (existingBooking.length === 0) {
+        if (existingBookingResult.rows.length === 0) {
             return res.status(404).json({ message: "Booking not found" });
         }
 
-        const booking = existingBooking[0];
+        const booking = existingBookingResult.rows[0];
         
         if (!booking.series_id || approveType === 'this') {
             // Approve only this specific booking
             await pool.query(
-                `UPDATE bookings SET status = 'approved', approved_at = NOW(), approved_by = ? WHERE id = ?`,
+                `UPDATE bookings SET status = 'approved', approved_at = NOW(), approved_by = $1 WHERE id = $2`,
                 [req.user.id, id]
             );
         } else if (approveType === 'future') {
             // Approve this and all future bookings in the series
             await pool.query(
-                `UPDATE bookings SET status = 'approved', approved_at = NOW(), approved_by = ? 
-                 WHERE series_id = ? AND start_datetime >= ?`,
+                `UPDATE bookings SET status = 'approved', approved_at = NOW(), approved_by = $1 
+                 WHERE series_id = $2 AND start_datetime >= $3`,
                 [req.user.id, booking.series_id, booking.start_datetime]
             );
         } else if (approveType === 'all') {
             // Approve all bookings in the series
             await pool.query(
-                `UPDATE bookings SET status = 'approved', approved_at = NOW(), approved_by = ? 
-                 WHERE series_id = ?`,
+                `UPDATE bookings SET status = 'approved', approved_at = NOW(), approved_by = $1 
+                 WHERE series_id = $2`,
                 [req.user.id, booking.series_id]
             );
         } else {
@@ -719,7 +736,7 @@ exports.approveSeriesBooking = async (req, res) => {
         const logId = uuidv4();
         const action = `Admin ${req.user.username} approved booking ${id} for ${booking.user_name}`;
         await pool.query(
-            `INSERT INTO logs (id, timestamp, action) VALUES (?, NOW(), ?)`,
+            `INSERT INTO logs (id, timestamp, action) VALUES ($1, NOW(), $2)`,
             [logId, action]
         );
         
@@ -735,22 +752,22 @@ exports.rejectBooking = async (req, res) => {
     const { id } = req.params;
     
     try {
-        const [existingBooking] = await pool.query('SELECT * FROM bookings WHERE id = ?', [id]);
+        const existingBookingResult = await pool.query('SELECT * FROM bookings WHERE id = $1', [id]);
         
-        if (existingBooking.length === 0) {
+        if (existingBookingResult.rows.length === 0) {
             return res.status(404).json({ message: "Booking not found" });
         }
         
         await pool.query(
-            `UPDATE bookings SET status = 'rejected', approved_at = NOW(), approved_by = ? WHERE id = ?`,
+            `UPDATE bookings SET status = 'rejected', approved_at = NOW(), approved_by = $1 WHERE id = $2`,
             [req.user.id, id]
         );
         
         // Log the rejection
         const logId = uuidv4();
-        const action = `Admin ${req.user.username} rejected booking ${id} for ${existingBooking[0].user_name}`;
+        const action = `Admin ${req.user.username} rejected booking ${id} for ${existingBookingResult.rows[0].user_name}`;
         await pool.query(
-            `INSERT INTO logs (id, timestamp, action) VALUES (?, NOW(), ?)`,
+            `INSERT INTO logs (id, timestamp, action) VALUES ($1, NOW(), $2)`,
             [logId, action]
         );
         
@@ -767,32 +784,32 @@ exports.rejectSeriesBooking = async (req, res) => {
     const { rejectType } = req.query; // 'this', 'future', or 'all'
     
     try {
-        const [existingBooking] = await pool.query('SELECT * FROM bookings WHERE id = ?', [id]);
+        const existingBookingResult = await pool.query('SELECT * FROM bookings WHERE id = $1', [id]);
         
-        if (existingBooking.length === 0) {
+        if (existingBookingResult.rows.length === 0) {
             return res.status(404).json({ message: "Booking not found" });
         }
 
-        const booking = existingBooking[0];
+        const booking = existingBookingResult.rows[0];
         
         if (!booking.series_id || rejectType === 'this') {
             // Reject only this specific booking
             await pool.query(
-                `UPDATE bookings SET status = 'rejected', approved_at = NOW(), approved_by = ? WHERE id = ?`,
+                `UPDATE bookings SET status = 'rejected', approved_at = NOW(), approved_by = $1 WHERE id = $2`,
                 [req.user.id, id]
             );
         } else if (rejectType === 'future') {
             // Reject this and all future bookings in the series
             await pool.query(
-                `UPDATE bookings SET status = 'rejected', approved_at = NOW(), approved_by = ? 
-                 WHERE series_id = ? AND start_datetime >= ?`,
+                `UPDATE bookings SET status = 'rejected', approved_at = NOW(), approved_by = $1 
+                 WHERE series_id = $2 AND start_datetime >= $3`,
                 [req.user.id, booking.series_id, booking.start_datetime]
             );
         } else if (rejectType === 'all') {
             // Reject all bookings in the series
             await pool.query(
-                `UPDATE bookings SET status = 'rejected', approved_at = NOW(), approved_by = ? 
-                 WHERE series_id = ?`,
+                `UPDATE bookings SET status = 'rejected', approved_at = NOW(), approved_by = $1 
+                 WHERE series_id = $2`,
                 [req.user.id, booking.series_id]
             );
         } else {
@@ -803,7 +820,7 @@ exports.rejectSeriesBooking = async (req, res) => {
         const logId = uuidv4();
         const action = `Admin ${req.user.username} rejected booking ${id} for ${booking.user_name}`;
         await pool.query(
-            `INSERT INTO logs (id, timestamp, action) VALUES (?, NOW(), ?)`,
+            `INSERT INTO logs (id, timestamp, action) VALUES ($1, NOW(), $2)`,
             [logId, action]
         );
         

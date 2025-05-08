@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 
+const VITE_API_URL = import.meta.env.VITE_API_URL;
+
 export default function RoomManagement({ rooms, setRooms }) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -28,7 +30,7 @@ export default function RoomManagement({ rooms, setRooms }) {
                 const token = localStorage.getItem('token');
                 
                 const response = await axios.get(
-                    'http://localhost:5000/api/rooms',
+                    `${VITE_API_URL}/rooms`,
                     {
                         headers: { 
                             'Authorization': `Bearer ${token}`
@@ -67,8 +69,9 @@ export default function RoomManagement({ rooms, setRooms }) {
             setLoading(true);
             const token = localStorage.getItem('token');
             
+            // Use the correct API endpoint for room creation (should be /rooms, not /api/rooms)
             const response = await axios.post(
-                'http://localhost:5000/api/rooms',
+                `${VITE_API_URL}/rooms`,
                 { 
                     name: name, 
                     floor: parseInt(floor), 
@@ -126,7 +129,7 @@ export default function RoomManagement({ rooms, setRooms }) {
             const token = localStorage.getItem('token');
             
             await axios.put(
-                `http://localhost:5000/api/rooms/${editingRoom.id}`,
+                `${VITE_API_URL}/api/rooms/${editingRoom.id}`,
                 { 
                     name: editName, 
                     floor: parseInt(editFloor), 
@@ -172,7 +175,7 @@ export default function RoomManagement({ rooms, setRooms }) {
             const token = localStorage.getItem('token');
             
             await axios.delete(
-                `http://localhost:5000/api/rooms/${roomId}`,
+                `${VITE_API_URL}/api/rooms/${roomId}`,
                 {
                     headers: { 
                         'Authorization': `Bearer ${token}`
