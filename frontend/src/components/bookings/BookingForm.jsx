@@ -6,7 +6,7 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
     const formattedToday = today.toISOString().split('T')[0]; // YYYY-MM-DD format
     const twoYearsFromNow = new Date(today.getFullYear() + 2, today.getMonth(), today.getDate()).toISOString().split('T')[0];
     
-    const [room, setRoom] = useState(rooms.length > 0 ? rooms[0].name : '');
+    const [room, setRoom] = useState(rooms.length > 0 ? rooms[0].name : "");
     const [startDate, setStartDate] = useState(formattedToday);
     const [endDate, setEndDate] = useState(formattedToday);
     const [startTime, setStartTime] = useState('09:00');
@@ -91,12 +91,12 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
     // Generate time slots (6:00 AM to 12:00 AM in 30-minute increments)
     const generateTimeSlots = () => {
         const slots = [];
-        for (let hour = 6; hour <= 23; hour++) {
+        for (let hour = 6; hour <= 22; hour++) {
             const hourFormatted = hour.toString().padStart(2, '0');
             slots.push(`${hourFormatted}:00`);
             slots.push(`${hourFormatted}:30`);
         }
-        slots.push('00:00'); // Midnight (12:00 AM)
+        slots.push('23:00');
         return slots;
     };
     
@@ -222,83 +222,100 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
     
     const handleSubmit = async (e) => {
         e.preventDefault();
-
-        // Clear previous messages
-        setError('');
-        setSuccess('');
-
-        // Validation: Weekly frequency must have at least one day selected
-        if (frequency === 'weekly' && Object.values(weekDays).every(v => !v)) {
-            setError('Please select at least one day for weekly repeats.');
-            setIsLoading(false);
-            return;
-        }
-
-        // Validation: End time must be after start time
-        if (startDate === endDate && startTime >= endTime) {
-            setError('End time must be after start time');
-            return;
-        }
-
-        try {
-            setIsLoading(true);
-            
-            // Prepare booking data
-            const bookingUserId = selectedUserId || user.id;
-            const bookingUserName = selectedUserName || user.name;
-            const repeatConfig = frequency !== 'single' ? prepareRepeatConfig() : null;
+        setSubmitting(true);
         
-            // Concatenate date and time for backend
-            const startDateTime = `${startDate} ${startTime}`;
-            const endDateTime = `${endDate} ${endTime}`;
-
-            const bookingData = {
-                room,
-                startDateTime,
-                endDateTime,
-                eventName,
-                frequency,
-                userId: bookingUserId,
-                userName: bookingUserName,
-                repeatConfig
+        try {
+          // Prepare data for API
+          const bookingData = {
+            room: selectedRoom,
+            startDateTime: formatDateTimeForAPI(startDate, startTime),
+            endDateTime: formatDateTimeForAPI(endDate, endTime),
+            eventName: eventName,
+            frequency: frequency,
+            userId: user.id,
+            userName: user.username
+          };
+          
+          // Add repeat configuration if this is a recurring booking
+          if (frequency !== 'single') {
+            const repeatConfig = {
+              repeatType: frequency,
+              repeatInterval: repeatInterval,
+              repeatOn: prepareRepeatOn(),
+              endsAfter: endOption === 'after' ? parseInt(endsAfterCount) : null,
+              endsOn: endOption === 'on' ? formatDateForAPI(endsOnDate) : null
             };
             
-            // Log the request details for debugging
-            console.log('Sending booking request:', bookingData);
+            bookingData.repeatConfig = repeatConfig;
             
-            const token = localStorage.getItem('token');
-            const response = await axios.post(
-                'http://localhost:5000/api/bookings',
-                bookingData,
-                {
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    }
-                }
-            );
+            // Log what we're sending to help debug
+            console.log("Sending booking data:", JSON.stringify(bookingData, null, 2));
+          }
+          
+          // Make the API request
+          const response = await fetch('/api/bookings', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify(bookingData)
+          });
+          
+          const data = await response.json();
+          
+          if (!response.ok) {
+            throw new Error(data.message || 'Failed to create booking');
+          }
+          
+          // Reset form and show success message
+          resetForm();
+          setNotification({ type: 'success', message: 'Booking created successfully' });
+          
+          // Make sure we check if data.booking exists before accessing properties
+          if (data.booking && onBookingCreated) {
+            onBookingCreated(data.booking);
+          } else if (data.bookings && data.bookings.length > 0 && onBookingCreated) {
+            // If we have multiple bookings, pass the first one to maintain compatibility
+            onBookingCreated(data.bookings[0]);
+          }
+          
+        } catch (error) {
+          console.error('Booking error:', error);
+          setNotification({ type: 'error', message: error.message });
+        } finally {
+          setSubmitting(false);
+        }
+      };
+      
+      // Helper function for preparing repeat configuration based on frequency
+      const prepareRepeatOn = () => {
+        switch (frequency) {
+          case 'weekly':
+            // Make sure selectedDays is an array of day names
+            return selectedDays || ['saturday']; // Default to Saturday if not set
             
-            console.log('Server response:', response.data);
-            
-            // Get the created booking from the response
-            const createdBooking = response.data.booking;
-            
-            // Pass the new booking to parent
-            if (typeof onBookingCreated === 'function') {
-                onBookingCreated(createdBooking);
+          case 'monthly':
+            if (monthlyOption === 'dayOfMonth') {
+              return { type: 'day-of-month', day: parseInt(dayOfMonth) };
+            } else {
+              return { 
+                type: 'day-of-week', 
+                position: parseInt(weekOfMonth), 
+                day: getDayNumberFromName(dayOfWeek) 
+              };
             }
             
-            // Show success message in the form
-            setSuccess(`Booking ${createdBooking.status === 'approved' ? 'created' : 'submitted for approval'}.`);
-            resetForm();
+          case 'yearly':
+            return { 
+              months: selectedMonths, 
+              day: parseInt(dayOfMonth) 
+            };
             
-        } catch (err) {
-            console.error('Booking error:', err);
-            setError(err.response?.data?.message || 'Error creating booking');
-        } finally {
-            setIsLoading(false);
+          default:
+            return null;
         }
-    };
+      };
     
     // Reset form function
     const resetForm = () => {
@@ -545,7 +562,7 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
                             onChange={(e) => setOccurrences(parseInt(e.target.value) || 1)}
                             disabled={endCondition !== 'after'}
                         />
-                        <span className="ml-1 text-sm text-gray-700">occurrences</span>
+                        <span className="ml-1 text-sm text-gray-700">occurrences. (inclusive of current selection)</span>
                     </div>
                     
                     <div className="flex items-center">
@@ -582,8 +599,8 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
                             No end date
                             <span className="ml-2 text-gray-400 cursor-pointer" tabIndex={0}>
                                 &#9432;
-                                <span className="hidden group-hover:block group-focus:block bg-gray-800 text-white text-xs rounded px-2 py-1 shadow-lg absolute z-10 -left-16 -top-8 whitespace-nowrap">
-                                    For system safety, recurring bookings with no end date are capped at 2 years.
+                                <span className="hidden group-hover:block mt-3 group-focus:block bg-gray-800 text-white text-xs rounded px-2 py-1 shadow-lg absolute z-10 -left-16 -bottom-8 whitespace-nowrap">
+                                    Recurring bookings with no end date are capped at 2 years.
                                 </span>
                             </span>
                         </label>
@@ -596,7 +613,7 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
             <h2 className="text-xl font-semibold mb-6 text-gray-800">
-                {user.role === 'admin' ? 'Create Booking' : 'Book a Room'}
+                Create Booking
             </h2>
             
             {error && (
@@ -700,7 +717,11 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
                     <select
                         className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         value={startTime}
-                        onChange={(e) => setStartTime(e.target.value)}
+                        onChange={(e) => {
+                            setStartTime(e.target.value);
+                            if (endTime <= e.target.value) setEndTime(e.target.value);
+                        }}
+                        
                         required
                     >
                         {timeSlots.map(time => (
@@ -714,7 +735,10 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
                     <select
                         className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         value={endTime}
-                        onChange={(e) => setEndTime(e.target.value)}
+                        onChange={(e) => {
+                            setEndTime(e.target.value);
+                            if (startTime >= e.target.value) setStartTime(e.target.value);
+                        }}
                         required
                     >
                         {timeSlots.map(time => (
