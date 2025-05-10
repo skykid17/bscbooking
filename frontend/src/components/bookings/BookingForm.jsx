@@ -746,7 +746,6 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
                         ))}
                     </select>
                 </div>
-                
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Frequency</label>
                     <select

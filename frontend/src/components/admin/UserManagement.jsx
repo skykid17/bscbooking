@@ -1,5 +1,10 @@
 import { useState } from 'react';
 import axios from 'axios';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { 
+    faCircleCheck,
+    faCircleXmark,
+} from '@fortawesome/free-solid-svg-icons';
 
 export default function UserManagement({ users = [], setUsers }) {
     const [loading, setLoading] = useState(false);
@@ -10,14 +15,24 @@ export default function UserManagement({ users = [], setUsers }) {
     // New user form state
     const [username, setUsername] = useState('');
     const [name, setName] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [role, setRole] = useState('user');
     
     // Edit form state
     const [editUsername, setEditUsername] = useState('');
     const [editName, setEditName] = useState('');
+    const [editEmail, setEditEmail] = useState('');
     const [editPassword, setEditPassword] = useState('');
+    const [editConfirmPassword, setEditConfirmPassword] = useState('');
     const [editRole, setEditRole] = useState('');
+
+    // Email validation function
+    const validateEmail = (email) => {
+        const re = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+        return re.test(String(email).toLowerCase());
+    };
 
     // Handle creating a new user
     const handleCreateUser = async (e) => {
@@ -25,8 +40,18 @@ export default function UserManagement({ users = [], setUsers }) {
         setError('');
         setSuccess('');
         
-        if (!username || !name || !password) {
+        if (!username || !name || !email || !password) {
             setError('All fields are required');
+            return;
+        }
+        
+        if (!validateEmail(email)) {
+            setError('Please enter a valid email address');
+            return;
+        }
+        
+        if (password !== confirmPassword) {
+            setError('Passwords do not match');
             return;
         }
         
@@ -36,7 +61,7 @@ export default function UserManagement({ users = [], setUsers }) {
             
             const response = await axios.post(
                 'http://localhost:5000/api/users',
-                { username, name, password, role },
+                { username, name, email, password, role },
                 {
                     headers: { 
                         'Authorization': `Bearer ${token}`
@@ -46,12 +71,15 @@ export default function UserManagement({ users = [], setUsers }) {
             
             // Add the new user to the list
             setUsers([...users, response.data.user]);
-            setSuccess('User created successfully');
+            setSuccess('User created successfully. ' + 
+                (role !== 'admin' ? 'A verification email has been sent to the user.' : ''));
             
             // Reset form
             setUsername('');
             setName('');
+            setEmail('');
             setPassword('');
+            setConfirmPassword('');
             setRole('user');
         } catch (error) {
             console.error('Error creating user:', error);
@@ -66,7 +94,9 @@ export default function UserManagement({ users = [], setUsers }) {
         setEditingUser(user);
         setEditUsername(user.username);
         setEditName(user.name);
+        setEditEmail(user.email || '');
         setEditPassword('');
+        setEditConfirmPassword('');
         setEditRole(user.role);
     };
     
@@ -81,6 +111,16 @@ export default function UserManagement({ users = [], setUsers }) {
             return;
         }
         
+        if (editEmail && !validateEmail(editEmail)) {
+            setError('Please enter a valid email address');
+            return;
+        }
+        
+        if (editPassword && editPassword !== editConfirmPassword) {
+            setError('Passwords do not match');
+            return;
+        }
+        
         try {
             setLoading(true);
             const token = localStorage.getItem('token');
@@ -90,6 +130,11 @@ export default function UserManagement({ users = [], setUsers }) {
                 name: editName,
                 role: editRole
             };
+            
+            // Only include email if it's provided
+            if (editEmail) {
+                userData.email = editEmail;
+            }
             
             // Only include password if it was changed
             if (editPassword) {
@@ -112,12 +157,14 @@ export default function UserManagement({ users = [], setUsers }) {
                     ...user, 
                     username: editUsername,
                     name: editName,
+                    email: editEmail,
                     role: editRole
                 } : user
             );
             
             setUsers(updatedUsers);
-            setSuccess('User updated successfully');
+            setSuccess('User updated successfully' + 
+                (editEmail && editEmail !== editingUser.email ? '. A new verification email has been sent.' : ''));
             setEditingUser(null);
         } catch (error) {
             console.error('Error updating user:', error);
@@ -169,16 +216,12 @@ export default function UserManagement({ users = [], setUsers }) {
                 </div>
             )}
             
-            {success && (
-                <div className="mb-4 p-3 bg-green-50 text-green-600 text-sm rounded border border-green-200">
-                    {success}
-                </div>
-            )}
+            
             
             {/* Create user form */}
             <div className="bg-gray-50 p-4 rounded-lg mb-6">
                 <h4 className="font-medium text-gray-700 mb-3">Create New User</h4>
-                <form onSubmit={handleCreateUser} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <form onSubmit={handleCreateUser} className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Username *</label>
                         <input
@@ -202,12 +245,34 @@ export default function UserManagement({ users = [], setUsers }) {
                     </div>
                     
                     <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                        <input
+                            type="email"
+                            className="w-full p-2 border border-gray-300 rounded-md"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            required
+                        />
+                    </div>
+
+                    <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Password *</label>
                         <input
                             type="password"
                             className="w-full p-2 border border-gray-300 rounded-md"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
+                            required
+                        />
+                    </div>
+                    
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password *</label>
+                        <input
+                            type="password"
+                            className="w-full p-2 border border-gray-300 rounded-md"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
                             required
                         />
                     </div>
@@ -224,7 +289,7 @@ export default function UserManagement({ users = [], setUsers }) {
                         </select>
                     </div>
                     
-                    <div className="md:col-span-2">
+                    <div className="md">
                         <button
                             type="submit"
                             disabled={loading}
@@ -233,6 +298,11 @@ export default function UserManagement({ users = [], setUsers }) {
                             {loading ? 'Creating...' : 'Create User'}
                         </button>
                     </div>
+                    {success && (
+                        <div className="mb-4 p-3 bg-green-50 text-green-600 text-sm rounded border border-green-200 md:col-span-2">
+                            {success}
+                        </div>
+                    )}
                 </form>
             </div>
             
@@ -243,7 +313,9 @@ export default function UserManagement({ users = [], setUsers }) {
                         <tr>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Username</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Verified</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
@@ -252,12 +324,19 @@ export default function UserManagement({ users = [], setUsers }) {
                             <tr key={user.id} className="hover:bg-gray-50">
                                 <td className="px-4 py-3 text-sm text-gray-800">{user.username}</td>
                                 <td className="px-4 py-3 text-sm text-gray-800">{user.name}</td>
+                                <td className="px-4 py-3 text-sm text-gray-800">{user.email || 'N/A'}</td>
                                 <td className="px-4 py-3 text-sm text-gray-800">
                                     <span className={`px-2 py-1 text-xs rounded-full font-medium
                                         ${user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}`}
                                     >
                                         {user.role}
                                     </span>
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-800">
+                                <FontAwesomeIcon 
+                                    icon={user.is_verified ? faCircleCheck : faCircleXmark} 
+                                    className={user.is_verified ? 'text-green-500' : 'text-red-500'} 
+                                />
                                 </td>
                                 <td className="px-4 py-3 text-sm">
                                     <div className="flex space-x-2">
@@ -325,6 +404,22 @@ export default function UserManagement({ users = [], setUsers }) {
                             </div>
                             
                             <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                                <input
+                                    type="email"
+                                    className="w-full p-2 border border-gray-300 rounded-md"
+                                    value={editEmail}
+                                    onChange={(e) => setEditEmail(e.target.value)}
+                                    placeholder="user@example.com"
+                                />
+                                {editEmail && editEmail !== editingUser.email && (
+                                    <p className="mt-1 text-xs text-amber-600">
+                                        Changing email will require re-verification.
+                                    </p>
+                                )}
+                            </div>
+                            
+                            <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
                                     Password (leave blank to keep current)
                                 </label>
@@ -334,6 +429,20 @@ export default function UserManagement({ users = [], setUsers }) {
                                     value={editPassword}
                                     onChange={(e) => setEditPassword(e.target.value)}
                                     placeholder="Enter new password"
+                                />
+                            </div>
+                            
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Confirm Password
+                                </label>
+                                <input
+                                    type="password"
+                                    className="w-full p-2 border border-gray-300 rounded-md"
+                                    value={editConfirmPassword}
+                                    onChange={(e) => setEditConfirmPassword(e.target.value)}
+                                    placeholder="Confirm new password"
+                                    disabled={!editPassword}
                                 />
                             </div>
                             

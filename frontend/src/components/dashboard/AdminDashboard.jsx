@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import AdminBookingTable from './AdminBookingTable';
-import AdminFilter from './AdminFilter';
-import UserManagement from './UserManagement';
+import AdminBookingTable from '../admin/AdminBookingTable';
+import AdminFilter from '../admin/AdminFilter';
+import UserManagement from '../admin/UserManagement';
 import BookingForm from '../bookings/BookingForm';
 import CalendarView from '../calendar/CalendarView';
-import RoomManagement from './RoomManagement';
+import RoomManagement from '../admin/RoomManagement';
 import { toast } from 'react-toastify';
 
 const VITE_API_URL = import.meta.env.VITE_API_URL;

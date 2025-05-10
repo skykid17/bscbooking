@@ -6,7 +6,7 @@ import { setupAuthInterceptors, isAuthenticated } from './utils/authUtils';
 import LoginPage from './components/auth/LoginPage';
 import RegisterPage from './components/auth/RegisterPage';
 import Dashboard from './components/dashboard/Dashboard';
-import AdminDashboard from './components/admin/AdminDashboard';
+import AdminDashboard from './components/dashboard/AdminDashboard';
 import Layout from './components/layout/Layout';
 // Import the background image
 import backgroundImage from './assets/bsc.jpg';

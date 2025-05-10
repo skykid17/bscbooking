@@ -16,7 +16,7 @@ export default function TopNav({ user, onLogout }) {
     const navigate = useNavigate();
     const location = useLocation();
     const [activeTab, setActiveTab] = useState(() => {
-        return localStorage.getItem('activeTab') || (user?.role === 'admin' ? 'bookings' : 'booking');
+        return localStorage.getItem('activeTab') || (user?.role === 'admin' ? 'bookings' : 'create-booking');
     });
 
     useEffect(() => {
@@ -42,7 +42,8 @@ export default function TopNav({ user, onLogout }) {
         { id: 'rooms', label: 'Manage Rooms', icon: faDoorOpen },
         { id: 'users', label: 'Manage Users', icon: faUsers }
     ] : [
-        { id: 'booking', label: 'Book', icon: faPlusCircle },
+        { id: 'home', label: 'Dashboard', icon: faHome },
+        { id: 'create-booking', label: 'Book', icon: faPlusCircle },
         { id: 'calendar', label: 'Calendar', icon: faCalendarDays },
         { id: 'mybookings', label: 'My Bookings', icon: faClipboardList }
     ];

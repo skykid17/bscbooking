@@ -175,7 +175,7 @@ export default function RoomManagement({ rooms, setRooms }) {
             const token = localStorage.getItem('token');
             
             await axios.delete(
-                `${VITE_API_URL}/api/rooms/${roomId}`,
+                `${VITE_API_URL}/rooms/${roomId}`,
                 {
                     headers: { 
                         'Authorization': `Bearer ${token}`
@@ -186,7 +186,10 @@ export default function RoomManagement({ rooms, setRooms }) {
             // Remove room from state
             const updatedRoomsData = roomsData.filter(room => room.id !== roomId);
             setRoomsData(updatedRoomsData);
-            setRooms(updatedRoomsData.map(room));
+            setRooms(updatedRoomsData.map(room => ({
+                id: room.id,
+                name: room.name
+            })));
             setSuccess('Room deleted successfully');
         } catch (error) {
             console.error('Error deleting room:', error);

@@ -105,7 +105,15 @@ export default function Dashboard({ user }) {
     return (
         <div className="bg-white rounded-lg shadow">
             <div className="p-6">
-                {activeTab === 'booking' && (
+                {activeTab === 'home' && (
+                    <div className="text-center">
+                        <h1 className="text-2xl font-bold mb-4">Welcome {user.username}</h1>
+                        <p className="text-gray-600">Select a tab to get started.</p>
+                    </div>
+                )
+
+                }
+                {activeTab === 'create-booking' && (
                     <BookingForm 
                         user={user} 
                         rooms={rooms} 
