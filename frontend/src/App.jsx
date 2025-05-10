@@ -8,16 +8,13 @@ import RegisterPage from './components/auth/RegisterPage';
 import Dashboard from './components/dashboard/Dashboard';
 import AdminDashboard from './components/dashboard/AdminDashboard';
 import Layout from './components/layout/Layout';
-// Import the background image
 import backgroundImage from './assets/bsc.jpg';
 import EmailVerifiedPage from './components/auth/EmailVerifiedPage';
 
-// Create a wrapper component to access navigate inside useEffect
 function AuthInterceptorSetup({ setUser }) {
   const navigate = useNavigate();
   
   useEffect(() => {
-    // Pass both navigate and setUser to the interceptor
     setupAuthInterceptors(navigate, setUser);
   }, [navigate, setUser]);
   
@@ -26,77 +23,68 @@ function AuthInterceptorSetup({ setUser }) {
 
 function App() {
   const [user, setUser] = useState(() => {
-    // Only load the user if we have a valid token
     if (isAuthenticated()) {
       const savedUser = localStorage.getItem('user');
       return savedUser ? JSON.parse(savedUser) : null;
     }
     return null;
   });
-  
-  // Handle login success
+
   const handleLoginSuccess = (userData) => {
     setUser(userData);
   };
-  
-  // Handle logout
+
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
   };
-  
-  // Add state for auth page management
+
   const [authPage, setAuthPage] = useState('login');
 
   return (
-    <BrowserRouter>
-      <AuthInterceptorSetup setUser={setUser} />
-      <ToastContainer 
-        position="top-right" 
-        autoClose={4000} 
-        hideProgressBar={true}
-        newestOnTop={false} 
-        closeOnClick 
-        toastClassName="shadow-sm rounded-lg overflow-hidden border-0"
-        bodyClassName="border-0"
-        pauseOnFocusLoss 
-        draggable 
+    <>
+      {/* Background Container */}
+      <div 
+        className="fixed inset-0 z-[-1] bg-cover bg-center"
+        style={{ backgroundImage: `url(${backgroundImage})`, opacity: 0.8 }}
       />
-      {/* Add background as the first element inside the BrowserRouter */}
-      <div className="fixed inset-0 z-[-1]">
-        {/* Background image layer */}
-        <div
-          className="w-full h-full bg-cover bg-center"
-          style={{ 
-            backgroundImage: `url(${backgroundImage})`,
-            opacity: 0.8 
-          }}
-        ></div>
-      </div>
-      <Layout user={user} onLogout={handleLogout}>
-        <div className="min-h-screen">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            <Routes>
-              <Route path="/login" element={
-                user ? <Navigate to="/" /> : <LoginPage onLoginSuccess={handleLoginSuccess} />
-              } />
-              <Route path="/register" element={
-                user ? <Navigate to="/" /> : <RegisterPage onRegisterSuccess={() => setAuthPage('login')} onLoginClick={() => setAuthPage('login')} />
-              } />
-              <Route path="/" element={
-                user ? (
-                  user.role === 'admin' ? 
-                    <AdminDashboard user={user} /> : 
-                    <Dashboard user={user} />
-                ) : <Navigate to="/login" />
-              } />
-              <Route path="/verify-email/:token" element={<EmailVerifiedPage />} />
-            </Routes>
-          </div>
-        </div>
-      </Layout>
-    </BrowserRouter>
+
+      <BrowserRouter>
+        <AuthInterceptorSetup setUser={setUser} />
+
+        <ToastContainer 
+          position="top-right" 
+          autoClose={4000} 
+          hideProgressBar={true}
+          newestOnTop={false} 
+          closeOnClick 
+          toastClassName="shadow-sm rounded-lg overflow-hidden border-0"
+          bodyClassName="border-0"
+          pauseOnFocusLoss 
+          draggable 
+        />
+
+        <Layout user={user} onLogout={handleLogout}>
+          <Routes>
+            <Route path="/login" element={
+              user ? <Navigate to="/" /> : <LoginPage onLoginSuccess={handleLoginSuccess} />
+            } />
+            <Route path="/register" element={
+              user ? <Navigate to="/" /> : <RegisterPage onRegisterSuccess={() => setAuthPage('login')} onLoginClick={() => setAuthPage('login')} />
+            } />
+            <Route path="/" element={
+              user ? (
+                user.role === 'admin' ? 
+                  <AdminDashboard user={user} /> : 
+                  <Dashboard user={user} />
+              ) : <Navigate to="/login" />
+            } />
+            <Route path="/verify-email/:token" element={<EmailVerifiedPage />} />
+          </Routes>
+        </Layout>
+      </BrowserRouter>
+    </>
   );
 }
 

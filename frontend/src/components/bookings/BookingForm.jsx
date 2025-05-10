@@ -631,7 +631,7 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* User selection dropdown for admins only */}
                 {user.role === 'admin' && (
-                    <div className="md:col-span-2">
+                    <div className="md:col-span-1">
                         <label className="block text-sm font-medium text-gray-700 mb-1">Book for User *</label>
                         <select
                             className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -658,7 +658,19 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
                         </select>
                     </div>
                 )}
-                
+                <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Event Name *</label>
+                    <input
+                        type="text"
+                        placeholder="Enter event name"
+                        className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={eventName}
+                        onChange={(e) => setEventName(e.target.value)}
+                        required
+                    />
+
+                </div>
+
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Room *</label>
                     <select
@@ -674,17 +686,20 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
                 </div>
                 
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Event Name *</label>
-                    <input
-                        type="text"
-                        placeholder="Enter event name"
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Frequency</label>
+                    <select
                         className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        value={eventName}
-                        onChange={(e) => setEventName(e.target.value)}
-                        required
-                    />
+                        value={frequency}
+                        onChange={(e) => setFrequency(e.target.value)}
+                    >
+                        <option value="single">Single Use</option>
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                        <option value="yearly">Yearly</option>
+                    </select>
                 </div>
-                
+
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Start Date *</label>
                     <input
@@ -746,20 +761,7 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
                         ))}
                     </select>
                 </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Frequency</label>
-                    <select
-                        className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        value={frequency}
-                        onChange={(e) => setFrequency(e.target.value)}
-                    >
-                        <option value="single">Single Use</option>
-                        <option value="daily">Daily</option>
-                        <option value="weekly">Weekly</option>
-                        <option value="monthly">Monthly</option>
-                        <option value="yearly">Yearly</option>
-                    </select>
-                </div>
+                
             </div>
             
             {/* Render additional options based on frequency */}
