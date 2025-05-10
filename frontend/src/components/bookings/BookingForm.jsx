@@ -16,6 +16,8 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+    const [notification, setNotification] = useState(null);
     
     // For admin booking on behalf of users
     const [users, setUsers] = useState([]);
@@ -220,109 +222,74 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
         return config;
     };
     
+    // Helper function to format date and time for API
+    const formatDateTimeForAPI = (date, time) => {
+        return `${date} ${time}:00`;
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setSubmitting(true);
         
+        setIsLoading(true);
+        setError('');
+        setSuccess('');
+
         try {
-          // Prepare data for API
-          const bookingData = {
-            room: selectedRoom,
-            startDateTime: formatDateTimeForAPI(startDate, startTime),
-            endDateTime: formatDateTimeForAPI(endDate, endTime),
-            eventName: eventName,
-            frequency: frequency,
-            userId: user.id,
-            userName: user.username
-          };
-          
-          // Add repeat configuration if this is a recurring booking
-          if (frequency !== 'single') {
-            const repeatConfig = {
-              repeatType: frequency,
-              repeatInterval: repeatInterval,
-              repeatOn: prepareRepeatOn(),
-              endsAfter: endOption === 'after' ? parseInt(endsAfterCount) : null,
-              endsOn: endOption === 'on' ? formatDateForAPI(endsOnDate) : null
+            // Prepare data for API
+            const bookingData = {
+                room: room,
+                startDateTime: formatDateTimeForAPI(startDate, startTime),
+                endDateTime: formatDateTimeForAPI(endDate, endTime),
+                eventName: eventName,
+                frequency: frequency, // Make sure frequency is explicitly included at the root level
+                userId: selectedUserId || user.id,
+                userName: selectedUserName || user.username
             };
             
-            bookingData.repeatConfig = repeatConfig;
-            
-            // Log what we're sending to help debug
-            console.log("Sending booking data:", JSON.stringify(bookingData, null, 2));
-          }
-          
-          // Make the API request
-          const response = await fetch('/api/bookings', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: JSON.stringify(bookingData)
-          });
-          
-          const data = await response.json();
-          
-          if (!response.ok) {
-            throw new Error(data.message || 'Failed to create booking');
-          }
-          
-          // Reset form and show success message
-          resetForm();
-          setNotification({ type: 'success', message: 'Booking created successfully' });
-          
-          // Make sure we check if data.booking exists before accessing properties
-          if (data.booking && onBookingCreated) {
-            onBookingCreated(data.booking);
-          } else if (data.bookings && data.bookings.length > 0 && onBookingCreated) {
-            // If we have multiple bookings, pass the first one to maintain compatibility
-            onBookingCreated(data.bookings[0]);
-          }
-          
-        } catch (error) {
-          console.error('Booking error:', error);
-          setNotification({ type: 'error', message: error.message });
-        } finally {
-          setSubmitting(false);
-        }
-      };
-      
-      // Helper function for preparing repeat configuration based on frequency
-      const prepareRepeatOn = () => {
-        switch (frequency) {
-          case 'weekly':
-            // Make sure selectedDays is an array of day names
-            return selectedDays || ['saturday']; // Default to Saturday if not set
-            
-          case 'monthly':
-            if (monthlyOption === 'dayOfMonth') {
-              return { type: 'day-of-month', day: parseInt(dayOfMonth) };
-            } else {
-              return { 
-                type: 'day-of-week', 
-                position: parseInt(weekOfMonth), 
-                day: getDayNumberFromName(dayOfWeek) 
-              };
+            // Add repeat configuration if this is a recurring booking
+            if (frequency !== 'single') {
+                bookingData.repeatConfig = prepareRepeatConfig();
+                
+                // Log what we're sending to help debug
+                console.log("Sending booking data:", JSON.stringify(bookingData, null, 2));
             }
             
-          case 'yearly':
-            return { 
-              months: selectedMonths, 
-              day: parseInt(dayOfMonth) 
-            };
+            // Make the API request
+            const token = localStorage.getItem('token');
+            const response = await axios.post('http://localhost:5000/api/bookings', bookingData, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
             
-          default:
-            return null;
+            const data = response.data;
+            
+            // Reset form and show success message
+            resetForm();
+            setSuccess('Booking created successfully');
+            
+            // Make sure we check if data.booking exists before accessing properties
+            if (data.booking && onBookingCreated) {
+                onBookingCreated(data.booking);
+            } else if (data.bookings && data.bookings.length > 0 && onBookingCreated) {
+                // If we have multiple bookings, pass the first one to maintain compatibility
+                onBookingCreated(data.bookings[0]);
+            }
+            
+        } catch (error) {
+            console.error('Booking error:', error);
+            setError(error.response?.data?.message || 'Failed to create booking');
+        } finally {
+            setIsLoading(false);
         }
-      };
+    };
     
     // Reset form function
     const resetForm = () => {
+        setRoom(rooms.length > 0 ? rooms[0].name : "");
         setEventName('');
+        setStartDate(formattedToday);
+        setEndDate(formattedToday);
         setStartTime('09:00');
         setEndTime('10:00');
-        setEndDate(formattedToday);
         setFrequency('single');
         setRepeatInterval(1);
         setWeekDays({
@@ -338,8 +305,8 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
             may: false, june: false, july: false, august: false,
             september: false, october: false, november: false, december: false
         });
-        setEndCondition('no-end');
-        setOccurrences(10);
+        setEndCondition('after');
+        setOccurrences(1);
         setEndOnDate(new Date(today.getFullYear(), today.getMonth() + 3, today.getDate()).toISOString().split('T')[0]);
     };
     

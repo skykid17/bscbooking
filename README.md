@@ -7,7 +7,7 @@ A full-stack web application for booking rooms at BSC with user/admin roles, rec
 ## 📦 Tech Stack
 
 - **Frontend:** React, Tailwind CSS, React Router DOM, Axios, Toastify
-- **Backend:** Node.js (Express), MySQL
+- **Backend:** Node.js (Express), PostgreSQL
 - **Authentication:** JWT with role-based access (user/admin)
 
 ---

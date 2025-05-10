@@ -42,7 +42,7 @@ exports.createBooking = async (req, res) => {
             endDateTime,
             eventName,
             userId,
-            frequency
+            frequency,
         });
         
         const createdAt = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
@@ -53,7 +53,7 @@ exports.createBooking = async (req, res) => {
         // Check for time conflicts
         const conflictsResult = await pool.query(
             `SELECT * FROM bookings 
-            WHERE room = $1 AND status != 'rejected'
+            WHERE room = $1 AND status == 'approved'
             AND NOT (
                 end_datetime <= $2 OR 
                 start_datetime >= $3

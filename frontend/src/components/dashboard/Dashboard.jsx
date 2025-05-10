@@ -110,9 +110,7 @@ export default function Dashboard({ user }) {
                         <h1 className="text-2xl font-bold mb-4">Welcome {user.username}</h1>
                         <p className="text-gray-600">Select a tab to get started.</p>
                     </div>
-                )
-
-                }
+                )}
                 {activeTab === 'create-booking' && (
                     <BookingForm 
                         user={user} 

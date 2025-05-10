@@ -4,7 +4,15 @@ const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 require('dotenv').config();
 
-async function initializeDatabase() {
+const terminateConnections = async (client, dbName) => {
+    await client.query(`
+      SELECT pg_terminate_backend(pid)
+      FROM pg_stat_activity
+      WHERE datname = $1 AND pid <> pg_backend_pid();
+    `, [dbName]);
+  };
+
+const initializeDatabase = async () => {
     let client;
 
     try {
@@ -16,7 +24,7 @@ async function initializeDatabase() {
             port: 5432
         });
         await client.connect();
-
+        await terminateConnections(client, 'bsc_booking');
         // Drop and create database
         await client.query('DROP DATABASE IF EXISTS bsc_booking');
         await client.query('CREATE DATABASE bsc_booking');
@@ -99,16 +107,51 @@ async function initializeDatabase() {
             );
         `);
 
-        // Create admin
+        // Create starting users
         const hashedPassword = await bcrypt.hash('admin', 10);
-        const adminId = uuidv4();
-        await client.query(`
-            INSERT INTO users (id, username, name, password, role, email, is_verified, verification_token)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8  )
-            ON CONFLICT (username) DO NOTHING;
-        `, [adminId, 'admin', 'admin', hashedPassword, 'admin', 'example@example.com', false, null]);
+        const users = [
+            { id: uuidv4(), username: 'admin', name: 'admin', password: await bcrypt.hash('admin', 10), role: 'admin', email: 'admin@example.com', is_verified: true, verification_token: null },    
+            { id: uuidv4(), username: 'user', name: 'user', password: await bcrypt.hash('user', 10), role: 'user', email: 'user@example.com', is_verified: true, verification_token: null },
+        ];
+
+        for (const user of users) {
+            await client.query(`
+                INSERT INTO users (id, username, name, password, role, email, is_verified, verification_token)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                ON CONFLICT (username) DO NOTHING;
+            `, [user.id, user.username, user.name, user.password, user.role, user.email, user.is_verified, user.verification_token]);
+        }
+
+        // Create starting rooms
+        const rooms = [
+            { id: uuidv4(), name: 'Father Damien Hall', floor: 1, pax: 100 },
+            { id: uuidv4(), name: 'Holy Family', floor: 3, pax: 20 },
+            { id: uuidv4(), name: 'Twin Hearts Library', floor: 3, pax: 20 },
+            { id: uuidv4(), name: 'Pastorial Worker\'s Office', floor: 4, pax: 10 },
+            { id: uuidv4(), name: 'St. Andrew', floor: 4, pax: 20 },
+            { id: uuidv4(), name: 'St. Bartholomew (Music Room)', floor: 4, pax: 20 },
+            { id: uuidv4(), name: 'St. James Alphesus', floor: 3, pax: 20 },
+            { id: uuidv4(), name: 'St. James Zebedee', floor: 3, pax: 20 },
+            { id: uuidv4(), name: 'St. John', floor: 3, pax: 20 },
+            { id: uuidv4(), name: 'St. Jude', floor: 4, pax: 20 },
+            { id: uuidv4(), name: 'St. Mark (Cathechetical Office)', floor: 3, pax: 20 },
+            { id: uuidv4(), name: 'St. Matthew', floor: 4, pax: 20 },
+            { id: uuidv4(), name: 'St. Paul (Attic)', floor: 5, pax: 30 },
+            { id: uuidv4(), name: 'St. Peter', floor: 3, pax: 20 },
+            { id: uuidv4(), name: 'St. Philip (Youth Room)', floor: 4, pax: 20 },
+            { id: uuidv4(), name: 'St. Thomas', floor: 4, pax: 20 },
+        ];
+
+        for (const room of rooms) {
+            await client.query(`
+                INSERT INTO rooms (id, name, floor, pax)
+                VALUES ($1, $2, $3, $4)
+                ON CONFLICT (name) DO NOTHING;
+            `, [room.id, room.name, room.floor, room.pax]);
+        }
 
         console.log('All tables created successfully');
+
     } catch (error) {
         console.error('Error initializing database:', error);
     } finally {
