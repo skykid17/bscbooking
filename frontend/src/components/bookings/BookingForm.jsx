@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from '../../utils/apiConfig';
 
 export default function BookingForm({ user, rooms, onBookingCreated }) {
     const today = new Date();
@@ -58,8 +59,8 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
                 try {
                     setLoadingUsers(true);
                     const token = localStorage.getItem('token');
-                    
-                    const response = await axios.get('http://localhost:5000/api/users', {
+
+                    const response = await axios.get(`${API_BASE_URL}/users`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
                     
@@ -256,7 +257,7 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
             
             // Make the API request
             const token = localStorage.getItem('token');
-            const response = await axios.post('http://localhost:5000/api/bookings', bookingData, {
+            const response = await axios.post(`${API_BASE_URL}/bookings`, bookingData, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             

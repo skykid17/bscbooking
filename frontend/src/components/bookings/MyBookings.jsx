@@ -6,6 +6,7 @@ import DeleteSeriesBookingModal from './DeleteSeriesBookingModal';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { formatDateTime } from '../../utils/dateUtils';
+import { API_BASE_URL } from '../../utils/apiConfig';
 
 export default function MyBookings({ user, rooms, bookings, setBookings }) {
     const [filteredBookings, setFilteredBookings] = useState([]);
@@ -32,7 +33,7 @@ export default function MyBookings({ user, rooms, bookings, setBookings }) {
             }
             
             const response = await axios.get(
-                `http://localhost:5000/api/bookings/user/${user.id}`,
+                `${API_BASE_URL}/bookings/user/${user.id}`,
                 {
                     headers: { 
                         'Authorization': `Bearer ${token}`
@@ -125,7 +126,7 @@ export default function MyBookings({ user, rooms, bookings, setBookings }) {
         try {
             const token = localStorage.getItem('token');
             await axios.put(
-                `http://localhost:5000/api/bookings/${updatedBooking.id}`,
+                `${API_BASE_URL}/bookings/${updatedBooking.id}`,
                 {
                     room: updatedBooking.room,
                     eventName: updatedBooking.eventName,
@@ -159,8 +160,8 @@ export default function MyBookings({ user, rooms, bookings, setBookings }) {
             const token = localStorage.getItem('token');
             
             const url = deleteType 
-                ? `http://localhost:5000/api/bookings/series/${bookingId}?deleteType=${deleteType}`
-                : `http://localhost:5000/api/bookings/${bookingId}`;
+                ? `${API_BASE_URL}/bookings/series/${bookingId}?deleteType=${deleteType}`
+                : `${API_BASE_URL}/bookings/${bookingId}`;
                 
             await axios.delete(url, {
                 headers: {

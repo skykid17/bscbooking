@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { API_BASE_URL } from '../../utils/apiConfig'; // Adjust the import path as necessary
 
 export default function EditSeriesBookingModal({ booking, onClose, onUpdate, rooms }) {
     const [room, setRoom] = useState(booking?.room || '');
@@ -59,7 +60,7 @@ export default function EditSeriesBookingModal({ booking, onClose, onUpdate, roo
             
             const token = localStorage.getItem('token');
             const response = await axios.put(
-                `http://localhost:5000/api/bookings/series/${booking.id}`,
+                `${API_BASE_URL}/bookings/series/${booking.id}`,
                 {
                     room,
                     start_datetime,

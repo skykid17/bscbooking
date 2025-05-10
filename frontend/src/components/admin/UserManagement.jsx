@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from '../../utils/apiConfig'; // Adjust the import path as necessary
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faCircleCheck,
@@ -60,7 +61,7 @@ export default function UserManagement({ users = [], setUsers }) {
             const token = localStorage.getItem('token');
             
             const response = await axios.post(
-                'http://localhost:5000/api/users',
+                `${API_BASE_URL}/users`,
                 { username, name, email, password, role },
                 {
                     headers: { 
@@ -142,7 +143,7 @@ export default function UserManagement({ users = [], setUsers }) {
             }
             
             const response = await axios.put(
-                `http://localhost:5000/api/users/${editingUser.id}`,
+                `${API_BASE_URL}/api/users/${editingUser.id}`,
                 userData,
                 {
                     headers: { 
@@ -185,7 +186,7 @@ export default function UserManagement({ users = [], setUsers }) {
             const token = localStorage.getItem('token');
             
             await axios.delete(
-                `http://localhost:5000/api/users/${userId}`,
+                `${API_BASE_URL}/api/users/${userId}`,
                 {
                     headers: { 
                         'Authorization': `Bearer ${token}`

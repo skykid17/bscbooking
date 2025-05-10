@@ -24,7 +24,7 @@ export default function EditBookingModal({ booking, rooms, onSave, onClose }) {
     };
     
     const timeSlots = generateTimeSlots();
-    
+
     const handleSubmit = (e) => {
         e.preventDefault();
         setError('');
@@ -34,17 +34,12 @@ export default function EditBookingModal({ booking, rooms, onSave, onClose }) {
             setError('Please fill in all required fields.');
             return;
         }
-        
-        if (isMultipleDays && new Date(endDate) < new Date(startDate)) {
-            setError('End date cannot be before start date.');
-            return;
-        }
-        
+
         if (startDate === endDate && startTime >= endTime) {
             setError('End time must be after start time.');
             return;
         }
-        
+
         const start_datetime = `${startDate} ${startTime}`;
         const end_datetime = `${isMultipleDays ? endDate : startDate} ${endTime}`;
 
@@ -59,7 +54,7 @@ export default function EditBookingModal({ booking, rooms, onSave, onClose }) {
         
         onSave(updatedBooking);
     };
-    
+
     return (
         <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
             <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-2xl">

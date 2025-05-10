@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL
+
 export default function ApproveSeriesBookingModal({ booking, onClose, onApproved }) {
     const [approveType, setApproveType] = useState('this');
     const [isSeriesBooking, setIsSeriesBooking] = useState(false);
@@ -33,21 +35,27 @@ export default function ApproveSeriesBookingModal({ booking, onClose, onApproved
         try {
             setIsLoading(true);
             setError('');
-            
+
             const token = localStorage.getItem('token');
-            const url = isSeriesBooking 
-                ? `http://localhost:5000/api/bookings/series/${booking.id}/${action}?approveType=${approveType}`
-                : `http://localhost:5000/api/bookings/${booking.id}/${action}`;
-                
+
+            let url = '';
+
+            if (isSeriesBooking) {
+                url = `{${API_BASE_URL}}/bookings/series/${booking.id}/${action}`;
+                url += action === 'approve' ? `?approveType=${approveType}` : `?rejectType=${approveType}`;
+            } else {
+                url = `{${API_BASE_URL}}/bookings/${booking.id}/${action}`;
+            }
+
             await axios.put(url, {}, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
             });
-            
-            onApproved(action, approveType); // Notify parent component
-            onClose(); // Close the modal
-            
+
+            onApproved(action, approveType);
+            onClose();
+
         } catch (err) {
             console.error(`${action.charAt(0).toUpperCase() + action.slice(1)} error:`, err);
             if (err.response) {
@@ -61,6 +69,7 @@ export default function ApproveSeriesBookingModal({ booking, onClose, onApproved
             setIsLoading(false);
         }
     };
+
     
     return (
         <div className="fixed inset-0 flex items-center justify-center z-50 modal-backdrop">

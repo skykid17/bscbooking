@@ -4,6 +4,7 @@ import CalendarView from '../calendar/CalendarView';
 import MyBookings from '../bookings/MyBookings';
 import { toast } from 'react-toastify';
 import axios from 'axios';
+import { API_BASE_URL } from '../../utils/apiConfig';
 
 export default function Dashboard({ user }) {
     // Get active tab from localStorage (or default to 'booking')
@@ -19,7 +20,7 @@ export default function Dashboard({ user }) {
             const token = localStorage.getItem('token');
             // API call to fetch bookings
             const response = await axios.get(
-                `http://localhost:5000/api/bookings/user/${user.id}`,
+                `${API_BASE_URL}/bookings/user/${user.id}`,
                 {
                     headers: { 
                         'Authorization': `Bearer ${token}`

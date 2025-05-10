@@ -19,6 +19,11 @@ export function formatDateTime(dateTimeString) {
 export function formatDateForInput(dateTimeString) {
     if (!dateTimeString) return '';
     const date = new Date(dateTimeString);
-    const [month, day, year] = date.toLocaleDateString('en-SG', { timeZone: 'Asia/Singapore' }).split('/');
-    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`; // returns "2025-05-03"
-};
+    if (isNaN(date.getTime())) return '';
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0'); // getMonth() is zero-indexed
+    const day = String(date.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
+}
