@@ -1,5 +1,7 @@
 No backdate booking DONE
 
+room management create user bug DONE
+
 Add ministry field (1 user 1 ministry)
 
 3 Days prior to booking
@@ -16,5 +18,3 @@ Terms and Conditions (before book button)
 26 June (Thursday) - 8pm
 
 Check w uncle paul
-
-room management create user bug DONE
