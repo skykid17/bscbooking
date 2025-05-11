@@ -16,7 +16,7 @@ const transporter = nodemailer.createTransport({
 // Get all users
 exports.getAllUsers = async (req, res) => {
     try {
-        const result = await pool.query('SELECT id, username, name, email, role, is_verified FROM users');
+        const result = await pool.query('SELECT id, ministry_id, name, email, role, is_verified FROM users');
         res.json(result.rows);
     } catch (error) {
         console.error('Error fetching users:', error);
@@ -29,7 +29,7 @@ exports.getUserById = async (req, res) => {
     const { id } = req.params;
     
     try {
-        const result = await pool.query('SELECT id, username, name, email, role, is_verified FROM users WHERE id = $1', [id]);
+        const result = await pool.query('SELECT id, ministry_id, name, email, role, is_verified FROM users WHERE id = $1', [id]);
         const user = result.rows;
         if (user.length === 0) {
             return res.status(404).json({ message: 'User not found' });
@@ -61,13 +61,6 @@ exports.createUser = async (req, res) => {
     }
     
     try {
-        // Check if username already exists
-        const resultUser = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
-        const existingUser = resultUser.rows;
-        if (existingUser.length > 0) {
-            return res.status(409).json({ message: 'Username already exists' });
-        }
-        
         // Check if email already exists
         const resultEmail = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
         const existingEmail = resultEmail.rows;
@@ -82,8 +75,8 @@ exports.createUser = async (req, res) => {
         const is_verified = userRole === 'admin' ? true : false; // Admin users are auto-verified
         
         await pool.query(
-            'INSERT INTO users (id, username, name, email, password, role, verification_token, is_verified) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-            [id, username, name, email, hashedPassword, userRole, verificationToken, is_verified]
+            'INSERT INTO users (id, ministry_id, name, email, password, role, verification_token, is_verified) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+            [id, ministryId, name, email, hashedPassword, userRole, verificationToken, is_verified]
         );
         
         // Send verification email if not admin
@@ -93,7 +86,7 @@ exports.createUser = async (req, res) => {
         
         // Log the action
         const logId = uuidv4();
-        const action = `Admin ${req.user.username} created new user ${username} with role ${userRole}`;
+        const action = `Admin ${req.user.username} created new user ${name} with role ${userRole}`;
         await pool.query(
             'INSERT INTO logs (id, timestamp, action) VALUES ($1, NOW(), $2)',
             [logId, action]
@@ -103,7 +96,7 @@ exports.createUser = async (req, res) => {
             message: 'User created successfully' + (userRole !== 'admin' ? '. Verification email sent.' : ''),
             user: {
                 id,
-                username,
+                ministryId,
                 name,
                 email,
                 role: userRole,
@@ -119,10 +112,10 @@ exports.createUser = async (req, res) => {
 // Update user
 exports.updateUser = async (req, res) => {
     const { id } = req.params;
-    const { username, name, email, password, role } = req.body;
-    
-    if (!username || !name) {
-        return res.status(400).json({ message: 'Username and name are required' });
+    const { ministryId, name, email, password, role } = req.body;
+
+    if (!ministryId || !name) {
+        return res.status(400).json({ message: 'Ministry and name are required' });
     }
     
     if (email) {

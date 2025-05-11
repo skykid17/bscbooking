@@ -23,8 +23,12 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
     // For admin booking on behalf of users
     const [users, setUsers] = useState([]);
     const [selectedUserId, setSelectedUserId] = useState(user.id);
-    const [selectedUserName, setSelectedUserName] = useState(user.name);
     const [loadingUsers, setLoadingUsers] = useState(false);
+    
+    // For ministry selection
+    const [ministries, setMinistries] = useState([]);
+    const [selectedMinistryId, setSelectedMinistryId] = useState(user.ministry_id || '');
+    const [loadingMinistries, setLoadingMinistries] = useState(false);
     
     // New state for advanced repeating options
     const [repeatInterval, setRepeatInterval] = useState(1);
@@ -148,6 +152,31 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
         }
     }, [user.role]);
     
+    // Fetch ministries if current user has a ministry or is admin
+    useEffect(() => {
+        const fetchMinistries = async () => {
+            try {
+                setLoadingMinistries(true);
+                const token = localStorage.getItem('token');
+
+                const response = await axios.get(`${API_BASE_URL}/ministries`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                setMinistries(response.data);
+            } catch (error) {
+                console.error('Error fetching ministries:', error);
+                setError('Failed to load ministries.');
+            } finally {
+                setLoadingMinistries(false);
+            }
+        };
+        
+        if (user.role === 'admin' || user.ministry_id) {
+            fetchMinistries();
+        }
+    }, [user.role, user.ministry_id]);
+
     // Handle user selection change
     const handleUserChange = (e) => {
         const userId = e.target.value;
@@ -155,10 +184,8 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
         
         if (selectedUser) {
             setSelectedUserId(selectedUser.id);
-            setSelectedUserName(selectedUser.name);
         } else {
             setSelectedUserId(user.id);
-            setSelectedUserName(user.name);
         }
     };
     
@@ -301,7 +328,7 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
                 eventName: eventName,
                 frequency: frequency, // Make sure frequency is explicitly included at the root level
                 userId: selectedUserId || user.id,
-                userName: selectedUserName || user.username
+                ministryId: selectedMinistryId || user.ministry_id || null
             };
             
             // Add repeat configuration if this is a recurring booking
@@ -377,6 +404,7 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
         setEndCondition('after');
         setOccurrences(1);
         setEndOnDate(new Date(today.getFullYear(), today.getMonth() + 3, today.getDate()).toISOString().split('T')[0]);
+        setSelectedMinistryId(user.ministry_id || '');
     };
     
     // Render repeating options based on frequency
@@ -685,7 +713,7 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
                                         .filter(u => u.id !== user.id) // Filter out the current admin
                                         .map(u => (
                                             <option key={u.id} value={u.id}>
-                                                {u.name} ({u.username})
+                                                {u.name} ({u.ministry_id ? u.ministry.name : 'No Ministry'})
                                             </option>
                                         ))
                                     }
@@ -694,6 +722,32 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
                         </select>
                     </div>
                 )}
+                
+                {/* Ministry selection for all users */}
+                <div className="md:col-span-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Ministry</label>
+                    <select
+                        className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={selectedMinistryId}
+                        onChange={(e) => setSelectedMinistryId(e.target.value)}
+                        disabled={loadingMinistries || (user.role !== 'admin' && !user.ministry_id)}
+                    >
+                        <option value="">None</option>
+                        {loadingMinistries ? (
+                            <option>Loading ministries...</option>
+                        ) : (
+                            ministries.map(ministry => (
+                                <option key={ministry.id} value={ministry.id}>{ministry.name}</option>
+                            ))
+                        )}
+                    </select>
+                    {user.role !== 'admin' && !user.ministry_id && (
+                        <p className="mt-1 text-xs text-gray-500">
+                            Only users assigned to a ministry or admins can select a ministry.
+                        </p>
+                    )}
+                </div>
+                
                 <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">Event Name *</label>
                     <input

@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../../utils/apiConfig';
 
 export default function LoginPage({ onLoginSuccess }) {
-    const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -13,15 +13,15 @@ export default function LoginPage({ onLoginSuccess }) {
     const handleLogin = async () => {
         setError('');
         
-        if (!username || !password) {
-            setError('Please enter both username and password');
+        if (!email || !password) {
+            setError('Please enter both email and password');
             return;
         }
-        
+
         try {
             setIsLoading(true);
             const response = await axios.post(`${API_BASE_URL}/auth/login`, {
-                username,
+                email,
                 password
             });
             
@@ -49,13 +49,13 @@ export default function LoginPage({ onLoginSuccess }) {
             
             <div className="space-y-5">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                     <input
-                        type="text"
-                        placeholder="Enter your username"
+                        type="email"
+                        placeholder="Enter your email"
                         className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                     />
                 </div>
                 

@@ -1,22 +1,40 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import api from '../../utils/apiConfig'; // Add this import at the top
+import { API_BASE_URL } from '../../utils/apiConfig';
 
 export default function RegisterPage({ onRegisterSuccess, onLoginClick }) {
-    const [username, setUsername] = useState('');
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [role, setRole] = useState('user');
+    const [ministryId, setMinistryId] = useState('');
+    const [ministries, setMinistries] = useState([]);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [loadingMinistries, setLoadingMinistries] = useState(false);
     const navigate = useNavigate();
 
+    // Fetch ministries for the dropdown
+    useEffect(() => {
+        const fetchMinistries = async () => {
+            try {
+                setLoadingMinistries(true);
+                const response = await axios.get(`${API_BASE_URL}/public/ministries`);
+                setMinistries(response.data);
+            } catch (err) {
+                console.error('Error fetching ministries:', err);
+            } finally {
+                setLoadingMinistries(false);
+            }
+        };
+        
+        fetchMinistries();
+    }, []);
+
     const validateEmail = (email) => {
-        const re = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+        const re = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
         return re.test(String(email).toLowerCase());
     };
 
@@ -24,8 +42,8 @@ export default function RegisterPage({ onRegisterSuccess, onLoginClick }) {
         setError('');
         setSuccess('');
         
-        if (!username || !name || !email || !password || !role) {
-            setError("All fields are required.");
+        if (!name || !email || !password) {
+            setError("Name, email and password are required.");
             return;
         }
         
@@ -42,21 +60,19 @@ export default function RegisterPage({ onRegisterSuccess, onLoginClick }) {
         try {
             setIsLoading(true);
             
-            // Use our configured API instance
-            await api.post('/auth/register', {
-                username,
+            await axios.post(`${API_BASE_URL}/auth/register`, {
                 name,
                 email,
                 password,
-                role
+                ministry_id: ministryId || null
             });
             
             setSuccess("Registration successful! Please check your email to verify your account.");
-            setUsername('');
             setName('');
             setEmail('');
             setPassword('');
             setConfirmPassword('');
+            setMinistryId('');
             
             // Don't auto-redirect since user needs to verify email first
         } catch (err) {
@@ -72,57 +88,71 @@ export default function RegisterPage({ onRegisterSuccess, onLoginClick }) {
             <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Register</h2>            
             <div className="space-y-4">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
-                    <input
-                        type="text"
-                        placeholder="Choose a username"
-                        className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                    />
-                </div>
-                
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Full Name*</label>
                     <input
                         type="text"
                         placeholder="Enter your full name"
                         className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
+                        required
                     />
                 </div>
                 
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email Address*</label>
                     <input
                         type="email"
                         placeholder="Enter your email address"
                         className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
+                        required
                     />
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Ministry (Optional)</label>
+                    <select
+                        className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={ministryId}
+                        onChange={(e) => setMinistryId(e.target.value)}
+                        disabled={loadingMinistries}
+                    >
+                        <option value="">None</option>
+                        {loadingMinistries ? (
+                            <option disabled>Loading ministries...</option>
+                        ) : (
+                            ministries.map(ministry => (
+                                <option key={ministry.id} value={ministry.id}>
+                                    {ministry.name}
+                                </option>
+                            ))
+                        )}
+                    </select>
                 </div>
                 
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Password*</label>
                     <input
                         type="password"
                         placeholder="Create a password"
                         className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
+                        required
                     />
                 </div>
                 
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password*</label>
                     <input
                         type="password"
                         placeholder="Confirm your password"
                         className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
                     />
                 </div>
                 {error && (

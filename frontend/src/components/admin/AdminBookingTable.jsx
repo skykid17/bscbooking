@@ -1,13 +1,45 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import EditSeriesBookingModal from '../bookings/EditSeriesBookingModal';
 import DeleteSeriesBookingModal from '../bookings/DeleteSeriesBookingModal'; 
 import ApproveSeriesBookingModal from '../bookings/ApproveSeriesBookingModal';
-import { formatDateTime, formatDate } from '../../utils/dateUtils'; // Assuming you have a utility function for formatting dates
+import { formatDateTime, formatDate } from '../../utils/dateUtils';
+import axios from 'axios';
+import { API_BASE_URL } from '../../utils/apiConfig';
 
 export default function AdminBookingTable({ bookings, onApprove, onReject, onEdit, onDelete, onRefresh, rooms }) {
     const [editBooking, setEditBooking] = useState(null);
     const [deleteBooking, setDeleteBooking] = useState(null);
     const [approveBooking, setApproveBooking] = useState(null);
+    const [ministries, setMinistries] = useState([]);
+    
+    // Fetch ministries for display
+    useEffect(() => {
+        const fetchMinistries = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await axios.get(
+                    `${API_BASE_URL}/ministries`,
+                    {
+                        headers: { 
+                            'Authorization': `Bearer ${token}`
+                        }
+                    }
+                );
+                setMinistries(response.data);
+            } catch (error) {
+                console.error('Error fetching ministries:', error);
+            }
+        };
+        
+        fetchMinistries();
+    }, []);
+    
+    // Helper to get ministry name from ID
+    const getMinistryName = (ministryId) => {
+        if (!ministryId) return 'None';
+        const ministry = ministries.find(m => m.id === ministryId);
+        return ministry ? ministry.name : 'Unknown';
+    };
     
     const isSeriesBooking = (booking) => {
         return booking.seriesId ? true : false;
@@ -56,6 +88,7 @@ export default function AdminBookingTable({ bookings, onApprove, onReject, onEdi
                 <thead>
                     <tr className="bg-gray-100 text-gray-700 text-sm uppercase">
                         <th className="px-4 py-3 text-left">User</th>
+                        <th className="px-4 py-3 text-left">Ministry</th>
                         <th className="px-4 py-3 text-left">Date Created</th>
                         <th className="px-4 py-3 text-left">Room</th>
                         <th className="px-4 py-3 text-left">Start</th>
@@ -70,6 +103,7 @@ export default function AdminBookingTable({ bookings, onApprove, onReject, onEdi
                     {bookings.map(booking => (
                         <tr key={booking.id} className="border-b hover:bg-gray-50">
                             <td className="px-4 py-3 text-sm">{booking.userName}</td>
+                            <td className="px-4 py-3 text-sm">{getMinistryName(booking.ministry_id)}</td>
                             <td className="px-4 py-3 text-sm">
                                 {booking.createdAt ? formatDate(booking.createdAt) : formatDate(new Date())}
                             </td>

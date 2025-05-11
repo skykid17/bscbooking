@@ -44,10 +44,10 @@ const pool = require('../config/db');
     }
 
     exports.registerUser = async (req, res) => {
-        const { username, name, email, password, role } = req.body;
+        const { name, email, password, ministry_id } = req.body;
 
-        if (!username || !password || !name || !email) {
-            return res.status(400).json({ message: "All fields are required." });
+        if (!password || !name || !email) {
+            return res.status(400).json({ message: "Name, email and password are required." });
         }
         
         // Validate email format
@@ -57,27 +57,28 @@ const pool = require('../config/db');
         }
 
         try {
-            // Check username uniqueness
-            const resultUsername = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
-            const existingUsername = resultUsername.rows;
-            if (existingUsername.length > 0) {
-                return res.status(400).json({ message: "Username already exists." });
-            }
-            
             // Check email uniqueness
             const resultEmail = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
             const existingEmail = resultEmail.rows;
             if (existingEmail.length > 0) {
                 return res.status(400).json({ message: "Email already exists." });
             }
-
+            
+            // Check if ministry exists if provided
+            if (ministry_id) {
+                const resultMinistry = await pool.query('SELECT * FROM ministries WHERE id = $1', [ministry_id]);
+                if (resultMinistry.rows.length === 0) {
+                    return res.status(400).json({ message: "Ministry not found." });
+                }
+            }
+            
             const hashedPassword = await bcrypt.hash(password, 10);
             const id = uuidv4();
             const verificationToken = crypto.randomBytes(32).toString('hex');
             
             await pool.query(
-                'INSERT INTO users (id, username, name, password, email, role, is_verified, verification_token) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)', 
-                [id, username, name, hashedPassword, email, role || 'user', false, verificationToken]
+                'INSERT INTO users (id, name, password, ministry_id, email, role, is_verified, verification_token) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)', 
+                [id, name, hashedPassword, ministry_id || null, email, 'user', false, verificationToken]
             );
             
             let responseMessage;
@@ -96,14 +97,14 @@ const pool = require('../config/db');
     };
 
     exports.loginUser = async (req, res) => {
-        const { username, password } = req.body;
+        const { email, password } = req.body;
 
-        if (!username || !password) {
+        if (!email || !password) {
             return res.status(400).json({ message: "All fields are required." });
         }
 
         try {
-            const resultUser = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+            const resultUser = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
             const user = resultUser.rows;
             if (user.length === 0) {
                 return res.status(400).json({ message: "Invalid credentials." });
@@ -123,9 +124,18 @@ const pool = require('../config/db');
                 });
             }
 
+            // Get ministry name if user has a ministry
+            let ministryName = null;
+            if (user[0].ministry_id) {
+                const ministryResult = await pool.query('SELECT name FROM ministries WHERE id = $1', [user[0].ministry_id]);
+                if (ministryResult.rows.length > 0) {
+                    ministryName = ministryResult.rows[0].name;
+                }
+            }
+
             const token = jwt.sign({
                 id: user[0].id,
-                username: user[0].username,
+                email: user[0].email,
                 role: user[0].role
             }, JWT_SECRET, { expiresIn: '8h' });
 
@@ -133,11 +143,12 @@ const pool = require('../config/db');
                 token,
                 user: {
                     id: user[0].id,
-                    username: user[0].username,
                     name: user[0].name,
                     email: user[0].email,
                     role: user[0].role,
-                    is_verified: user[0].is_verified
+                    is_verified: user[0].is_verified,
+                    ministry_id: user[0].ministry_id,
+                    ministry_name: ministryName
                 }
             });
         } catch (error) {

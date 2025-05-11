@@ -10,7 +10,8 @@ exports.createBooking = async (req, res) => {
         eventName, 
         frequency, 
         userId, 
-        userName, 
+        userName,
+        ministryId,
         repeatConfig 
     } = req.body;
 
@@ -42,8 +43,16 @@ exports.createBooking = async (req, res) => {
             endDateTime,
             eventName,
             userId,
+            ministryId,
             frequency,
         });
+        
+        // Lookup room_id from room name
+        const roomResult = await pool.query('SELECT id FROM rooms WHERE name = $1', [room]);
+        if (roomResult.rows.length === 0) {
+            return res.status(404).json({ message: "Room not found" });
+        }
+        const roomId = roomResult.rows[0].id;
         
         const createdAt = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
         
@@ -53,12 +62,12 @@ exports.createBooking = async (req, res) => {
         // Check for time conflicts
         const conflictsResult = await pool.query(
             `SELECT * FROM bookings 
-            WHERE room = $1 AND status = 'approved'
+            WHERE room_id = $1 AND status = 'approved'
             AND NOT (
                 end_datetime <= $2 OR 
                 start_datetime >= $3
             )`,
-            [room, startDateTime, endDateTime]
+            [roomId, startDateTime, endDateTime]
         );
 
         if (conflictsResult.rows.length > 0) {
@@ -73,8 +82,8 @@ exports.createBooking = async (req, res) => {
             // Create the repeat series configuration
             await pool.query(
                 `INSERT INTO repeat_series 
-                (id, created_by, repeat_type, repeat_interval, repeat_on, ends_after, ends_on, created_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+                (id, created_by, repeat_type, repeat_interval, repeat_on, ends_after, ends_on)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)`,
                 [
                     seriesId, 
                     userId, 
@@ -95,10 +104,10 @@ exports.createBooking = async (req, res) => {
             const id = uuidv4();
             await pool.query(
                 `INSERT INTO bookings 
-                (id, user_id, user_name, room, event_name, start_datetime, end_datetime, 
+                (id, user_id, ministry_id, room_id, event_name, start_datetime, end_datetime, 
                  frequency, created_at, status) 
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-                [id, userId, userName, room, eventName, startDateTime, endDateTime, 
+                [id, userId, ministryId, roomId, eventName, startDateTime, endDateTime, 
                  frequency, createdAt, status]
             );            
             bookings.push({
@@ -106,6 +115,8 @@ exports.createBooking = async (req, res) => {
                 userId,
                 userName,
                 room,
+                roomId,
+                ministry_id: ministryId,
                 eventName,
                 startDateTime,
                 endDateTime,
@@ -126,10 +137,10 @@ exports.createBooking = async (req, res) => {
                 const id = uuidv4();
                 await pool.query(
                     `INSERT INTO bookings 
-                    (id, user_id, user_name, room, event_name, start_datetime, end_datetime, series_id, frequency, created_at, approved_at, approved_by, status) 
+                    (id, user_id, ministry_id, room_id, event_name, start_datetime, end_datetime, series_id, frequency, created_at, approved_at, approved_by, status) 
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW(), $10, $11)`,
                     [
-                        id, userId, userName, room, eventName,
+                        id, userId, ministryId, roomId, eventName,
                         occurrence.startDateTime, occurrence.endDateTime,
                         seriesId, frequency,
                         approvedBy, status
@@ -141,6 +152,8 @@ exports.createBooking = async (req, res) => {
                     userId,
                     userName,
                     room,
+                    roomId,
+                    ministry_id: ministryId,
                     eventName,
                     startDateTime: occurrence.startDateTime,
                     endDateTime: occurrence.endDateTime,
@@ -157,7 +170,7 @@ exports.createBooking = async (req, res) => {
         // If admin is creating the booking for someone else, log this action
         if (isAdmin && !isCreatingForSelf) {
             const logId = uuidv4();
-            const action = `Admin ${req.user.username} created ${status} booking for ${userName}`;
+            const action = `Admin ${req.user.email} created ${status} booking for ${userName}`;
             await pool.query(
                 `INSERT INTO logs (id, timestamp, action) VALUES ($1, NOW(), $2)`,
                 [logId, action]
@@ -172,6 +185,90 @@ exports.createBooking = async (req, res) => {
     } catch (error) {
         console.error("Error creating booking:", error);
         res.status(500).json({ message: "Server error during booking creation" });
+    }
+};
+
+// Get all bookings (admin only)
+exports.getBookings = async (req, res) => {
+    try {
+        const { user, room, date, status } = req.query;
+        
+        // Build a query that joins with room and user tables to get names
+        let query = `
+            SELECT b.*, 
+                   r.name as room, 
+                   u.name as user_name, 
+                   m.name as ministry_name
+            FROM bookings b
+            LEFT JOIN rooms r ON b.room_id = r.id
+            LEFT JOIN users u ON b.user_id = u.id
+            LEFT JOIN ministries m ON b.ministry_id = m.id
+        `;
+        
+        let conditions = [];
+        let params = [];
+        let paramCount = 1;
+
+        if (user) {
+            conditions.push(`b.user_id = $${paramCount}`);
+            params.push(user);
+            paramCount++;
+        }
+
+        if (room) {
+            conditions.push(`r.name = $${paramCount}`);
+            params.push(room);
+            paramCount++;
+        }
+
+        if (date) {
+            // Ensure date is treated as a full-day range
+            const dayStart = new Date(date + 'T00:00:00').toISOString();
+            const dayEnd = new Date(date + 'T23:59:59.999Z').toISOString();
+
+            conditions.push(`b.start_datetime <= $${paramCount} AND b.end_datetime >= $${paramCount + 1}`);
+            params.push(dayEnd, dayStart);
+            paramCount += 2;
+        }
+
+        if (status) {
+            conditions.push(`b.status = $${paramCount}`);
+            params.push(status);
+            paramCount++;
+        }
+
+        if (conditions.length > 0) {
+            query += ' WHERE ' + conditions.join(' AND ');
+        }
+
+        query += ' ORDER BY b.created_at DESC';
+
+        const bookingsResult = await pool.query(query, params);
+        
+        // Format the results to match frontend expected format
+        const formattedBookings = bookingsResult.rows.map(booking => ({
+            id: booking.id,
+            userId: booking.user_id,
+            userName: booking.user_name,
+            ministry_id: booking.ministry_id,
+            ministryName: booking.ministry_name,
+            room: booking.room,
+            roomId: booking.room_id,
+            eventName: booking.event_name,
+            startDateTime: booking.start_datetime,
+            endDateTime: booking.end_datetime,
+            frequency: booking.frequency,
+            status: booking.status,
+            createdAt: booking.created_at,
+            approvedAt: booking.approved_at,
+            approvedBy: booking.approved_by,
+            seriesId: booking.series_id
+        }));
+
+        res.json(formattedBookings);
+    } catch (error) {
+        console.error("Error fetching bookings:", error);
+        res.status(500).json({ message: "Server error while fetching bookings" });
     }
 };
 
@@ -301,53 +398,6 @@ function addDays(date, days) {
     return newDate;
 }
 
-// Get all bookings (admin only)
-exports.getBookings = async (req, res) => {
-    try {
-        const { user, room, date, status } = req.query;
-        let query = 'SELECT * FROM bookings';
-        let conditions = [];
-        let params = [];
-
-        if (user) {
-            conditions.push('user_id = $1');
-            params.push(user);
-        }
-
-        if (room) {
-            conditions.push('room = $2');
-            params.push(room);
-        }
-
-        if (date) {
-            // Ensure date is treated as a full-day range
-            const dayStart = new Date(date + 'T00:00:00').toISOString();
-            const dayEnd = new Date(date + 'T23:59:59.999Z').toISOString();
-
-            conditions.push('start_datetime <= $3 AND end_datetime >= $4');
-            params.push(dayEnd, dayStart);
-        }
-
-        if (status) {
-            conditions.push('status = $5');
-            params.push(status);
-        }
-
-        if (conditions.length > 0) {
-            query += ' WHERE ' + conditions.join(' AND ');
-        }
-
-        query += ' ORDER BY created_at DESC';
-
-        const bookingsResult = await pool.query(query, params);
-
-        res.json(bookingsResult.rows);
-    } catch (error) {
-        console.error("Error fetching bookings:", error);
-        res.status(500).json({ message: "Server error while fetching bookings" });
-    }
-};
-
 // Get user bookings
 exports.getUserBookings = async (req, res) => {
     const { userId } = req.params;
@@ -359,10 +409,39 @@ exports.getUserBookings = async (req, res) => {
 
     try {
         const bookingsResult = await pool.query(
-            'SELECT * FROM bookings WHERE user_id = $1 ORDER BY created_at DESC',
+            `SELECT b.*, 
+                    r.name as room, 
+                    u.name as user_name, 
+                    m.name as ministry_name
+             FROM bookings b
+             LEFT JOIN rooms r ON b.room_id = r.id
+             LEFT JOIN users u ON b.user_id = u.id
+             LEFT JOIN ministries m ON b.ministry_id = m.id
+             WHERE b.user_id = $1 
+             ORDER BY b.created_at DESC`,
             [userId]
         );
-        res.json(bookingsResult.rows);
+
+        const formattedBookings = bookingsResult.rows.map(booking => ({
+            id: booking.id,
+            userId: booking.user_id,
+            userName: booking.user_name,
+            ministry_id: booking.ministry_id,
+            ministryName: booking.ministry_name,
+            room: booking.room,
+            roomId: booking.room_id,
+            eventName: booking.event_name,
+            startDateTime: booking.start_datetime,
+            endDateTime: booking.end_datetime,
+            frequency: booking.frequency,
+            status: booking.status,
+            createdAt: booking.created_at,
+            approvedAt: booking.approved_at,
+            approvedBy: booking.approved_by,
+            seriesId: booking.series_id
+        }));
+
+        res.json(formattedBookings);
     } catch (error) {
         console.error("Error fetching user bookings:", error);
         res.status(500).json({ message: "Server error while fetching user bookings" });
@@ -374,7 +453,18 @@ exports.getBookingById = async (req, res) => {
     const { id } = req.params;
     
     try {
-        const bookingResult = await pool.query('SELECT * FROM bookings WHERE id = $1', [id]);
+        const bookingResult = await pool.query(
+            `SELECT b.*, 
+                    r.name as room, 
+                    u.name as user_name, 
+                    m.name as ministry_name
+             FROM bookings b
+             LEFT JOIN rooms r ON b.room_id = r.id
+             LEFT JOIN users u ON b.user_id = u.id
+             LEFT JOIN ministries m ON b.ministry_id = m.id
+             WHERE b.id = $1`,
+            [id]
+        );
         
         if (bookingResult.rows.length === 0) {
             return res.status(404).json({ message: "Booking not found" });
@@ -385,7 +475,27 @@ exports.getBookingById = async (req, res) => {
             return res.status(403).json({ message: "You can only access your own bookings" });
         }
         
-        res.json(bookingResult.rows[0]);
+        const booking = bookingResult.rows[0];
+        const formattedBooking = {
+            id: booking.id,
+            userId: booking.user_id,
+            userName: booking.user_name,
+            ministry_id: booking.ministry_id,
+            ministryName: booking.ministry_name,
+            room: booking.room,
+            roomId: booking.room_id,
+            eventName: booking.event_name,
+            startDateTime: booking.start_datetime,
+            endDateTime: booking.end_datetime,
+            frequency: booking.frequency,
+            status: booking.status,
+            createdAt: booking.created_at,
+            approvedAt: booking.approved_at,
+            approvedBy: booking.approved_by,
+            seriesId: booking.series_id
+        };
+
+        res.json(formattedBooking);
     } catch (error) {
         console.error("Error fetching booking:", error);
         res.status(500).json({ message: "Server error while fetching booking" });
@@ -404,6 +514,13 @@ exports.updateBooking = async (req, res) => {
     } = req.body;
 
     try {
+        // Lookup room_id from room name
+        const roomResult = await pool.query('SELECT id FROM rooms WHERE name = $1', [room]);
+        if (roomResult.rows.length === 0) {
+            return res.status(404).json({ message: "Room not found" });
+        }
+        const roomId = roomResult.rows[0].id;
+
         // Check if booking exists
         const existingBookingResult = await pool.query('SELECT * FROM bookings WHERE id = $1', [id]);
         
@@ -425,9 +542,9 @@ exports.updateBooking = async (req, res) => {
         // Check for time conflicts (excluding this booking)
         const conflictsResult = await pool.query(
             `SELECT * FROM bookings 
-             WHERE room = $1 AND id != $2 AND status != 'rejected'
+             WHERE room_id = $1 AND id != $2 AND status != 'rejected'
              AND NOT (end_datetime <= $3 OR start_datetime >= $4)`,
-            [room, id, start_datetime, end_datetime]
+            [roomId, id, start_datetime, end_datetime]
         );
 
         if (conflictsResult.rows.length > 0) {
@@ -437,13 +554,13 @@ exports.updateBooking = async (req, res) => {
         // Update the booking with new values
         await pool.query(
             `UPDATE bookings SET
-             room = $1,
+             room_id = $1,
              event_name = $2,
              start_datetime = $3,
              end_datetime = $4,
              frequency = $5
              WHERE id = $6`,
-            [room, eventName, start_datetime, end_datetime, frequency, id]
+            [roomId, eventName, start_datetime, end_datetime, frequency, id]
         );
 
         // Log admin updates
@@ -578,7 +695,7 @@ async function updateAllSeriesBookings(seriesId, room, startDateTime, endDateTim
 // Delete booking
 exports.deleteBooking = async (req, res) => {
     const { id } = req.params;
-    
+
     try {
         // Check if booking exists
         const existingBookingResult = await pool.query('SELECT * FROM bookings WHERE id = $1', [id]);
@@ -631,7 +748,8 @@ exports.deleteSeriesBooking = async (req, res) => {
             return res.status(403).json({ message: "You can only delete your own bookings" });
         }
 
-        console.log(`Processing series deletion: ${id}, type: ${deleteType}`); // Add logging
+        // Delete the booking
+        await pool.query('DELETE FROM bookings WHERE id = $1', [id]);
 
         // Handle different delete types for series bookings
         if (deleteType === 'this') {
@@ -651,16 +769,16 @@ exports.deleteSeriesBooking = async (req, res) => {
         // Log admin deletions
         if (req.user.role === 'admin' && req.user.id !== booking.user_id) {
             const logId = uuidv4();
-            const action = `Admin ${req.user.username} deleted booking ${id} for ${booking.user_name}`;
+            const action = `Admin ${req.user.email} deleted booking ${id} for ${booking.user_name}`;
             await pool.query(
                 `INSERT INTO logs (id, timestamp, action) VALUES ($1, NOW(), $2)`,
                 [logId, action]
             );
         }
-        
+
         res.json({ message: "Booking deleted successfully" });
     } catch (error) {
-        console.error("Error in deleteSeriesBooking:", error);
+        console.error("Error deleting booking:", error);
         res.status(500).json({ message: "Server error while deleting booking" });
     }
 };

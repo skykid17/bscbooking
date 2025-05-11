@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = 'supersecret'; // TODO: move to .env later
+const JWT_SECRET = process.env.JWT_SECRET;
 
 exports.authenticate = (req, res, next) => {
     try {

@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { API_BASE_URL } from '../../utils/apiConfig'; // Adjust the import path as necessary
+import { API_BASE_URL } from '../../utils/apiConfig';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faCircleCheck,
@@ -14,20 +14,23 @@ export default function UserManagement({ users = [], setUsers }) {
     const [editingUser, setEditingUser] = useState(null);
     
     // New user form state
-    const [username, setUsername] = useState('');
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [role, setRole] = useState('user');
+    const [selectedMinistry, setSelectedMinistry] = useState('');
     
     // Edit form state
-    const [editUsername, setEditUsername] = useState('');
     const [editName, setEditName] = useState('');
     const [editEmail, setEditEmail] = useState('');
     const [editPassword, setEditPassword] = useState('');
     const [editConfirmPassword, setEditConfirmPassword] = useState('');
     const [editRole, setEditRole] = useState('');
+    const [editMinistry, setEditMinistry] = useState('');
+    
+    // Ministries state
+    const [ministries, setMinistries] = useState([]);
 
     // Email validation function
     const validateEmail = (email) => {
@@ -35,13 +38,36 @@ export default function UserManagement({ users = [], setUsers }) {
         return re.test(String(email).toLowerCase());
     };
 
+    // Fetch all ministries
+    useEffect(() => {
+        const fetchMinistries = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await axios.get(
+                    `${API_BASE_URL}/ministries`,
+                    {
+                        headers: { 
+                            'Authorization': `Bearer ${token}`
+                        }
+                    }
+                );
+                setMinistries(response.data);
+            } catch (error) {
+                console.error('Error fetching ministries:', error);
+                setError('Failed to load ministries. Some features may be limited.');
+            }
+        };
+        
+        fetchMinistries();
+    }, []);
+
     // Handle creating a new user
     const handleCreateUser = async (e) => {
         e.preventDefault();
         setError('');
         setSuccess('');
         
-        if (!username || !name || !email || !password) {
+        if (!email || !name || !password) {
             setError('All fields are required');
             return;
         }
@@ -62,7 +88,13 @@ export default function UserManagement({ users = [], setUsers }) {
             
             const response = await axios.post(
                 `${API_BASE_URL}/users`,
-                { username, name, email, password, role },
+                { 
+                    name, 
+                    email, 
+                    password, 
+                    role,
+                    ministry_id: selectedMinistry || null
+                },
                 {
                     headers: { 
                         'Authorization': `Bearer ${token}`
@@ -76,12 +108,12 @@ export default function UserManagement({ users = [], setUsers }) {
                 (role !== 'admin' ? 'A verification email has been sent to the user.' : ''));
             
             // Reset form
-            setUsername('');
             setName('');
             setEmail('');
             setPassword('');
             setConfirmPassword('');
             setRole('user');
+            setSelectedMinistry('');
         } catch (error) {
             console.error('Error creating user:', error);
             setError(error.response?.data?.message || 'Failed to create user');
@@ -93,12 +125,12 @@ export default function UserManagement({ users = [], setUsers }) {
     // Handle editing a user
     const handleEditClick = (user) => {
         setEditingUser(user);
-        setEditUsername(user.username);
         setEditName(user.name);
         setEditEmail(user.email || '');
         setEditPassword('');
         setEditConfirmPassword('');
         setEditRole(user.role);
+        setEditMinistry(user.ministry_id || '');
     };
     
     // Handle updating a user
@@ -107,8 +139,8 @@ export default function UserManagement({ users = [], setUsers }) {
         setError('');
         setSuccess('');
         
-        if (!editUsername || !editName) {
-            setError('Username and name are required');
+        if (!editName) {
+            setError('Name is required');
             return;
         }
         
@@ -127,9 +159,9 @@ export default function UserManagement({ users = [], setUsers }) {
             const token = localStorage.getItem('token');
             
             const userData = {
-                username: editUsername,
                 name: editName,
-                role: editRole
+                role: editRole,
+                ministry_id: editMinistry || null
             };
             
             // Only include email if it's provided
@@ -156,10 +188,10 @@ export default function UserManagement({ users = [], setUsers }) {
             const updatedUsers = users.map(user => 
                 user.id === editingUser.id ? { 
                     ...user, 
-                    username: editUsername,
                     name: editName,
                     email: editEmail,
-                    role: editRole
+                    role: editRole,
+                    ministry_id: editMinistry
                 } : user
             );
             
@@ -174,7 +206,7 @@ export default function UserManagement({ users = [], setUsers }) {
             setLoading(false);
         }
     };
-    
+
     // Handle deleting a user
     const handleDeleteUser = async (userId) => {
         if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
@@ -206,6 +238,13 @@ export default function UserManagement({ users = [], setUsers }) {
         }
     };
 
+    // Find ministry name by ID
+    const getMinistryName = (ministryId) => {
+        if (!ministryId) return 'None';
+        const ministry = ministries.find(m => m.id === ministryId);
+        return ministry ? ministry.name : 'Unknown';
+    };
+
     return (
         <div>
             <h3 className="text-xl font-semibold mb-6 text-gray-800">User Management</h3>
@@ -217,19 +256,17 @@ export default function UserManagement({ users = [], setUsers }) {
                 </div>
             )}
             
-            
-            
             {/* Create user form */}
             <div className="bg-gray-50 p-4 rounded-lg mb-6">
                 <h4 className="font-medium text-gray-700 mb-3">Create New User</h4>
                 <form onSubmit={handleCreateUser} className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Username *</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
                         <input
-                            type="text"
+                            type="email"
                             className="w-full p-2 border border-gray-300 rounded-md"
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
                             required
                         />
                     </div>
@@ -246,14 +283,17 @@ export default function UserManagement({ users = [], setUsers }) {
                     </div>
                     
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-                        <input
-                            type="email"
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Ministry</label>
+                        <select
                             className="w-full p-2 border border-gray-300 rounded-md"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            required
-                        />
+                            value={selectedMinistry}
+                            onChange={(e) => setSelectedMinistry(e.target.value)}
+                        >
+                            <option value="">None</option>
+                            {ministries.map(ministry => (
+                                <option key={ministry.id} value={ministry.id}>{ministry.name}</option>
+                            ))}
+                        </select>
                     </div>
 
                     <div>
@@ -312,9 +352,9 @@ export default function UserManagement({ users = [], setUsers }) {
                 <table className="min-w-full bg-white border border-gray-200 rounded-lg overflow-hidden">
                     <thead className="bg-gray-100">
                         <tr>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Username</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ministry</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Verified</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -323,9 +363,9 @@ export default function UserManagement({ users = [], setUsers }) {
                     <tbody className="divide-y divide-gray-200">
                         {users.map((user) => (
                             <tr key={user.id} className="hover:bg-gray-50">
-                                <td className="px-4 py-3 text-sm text-gray-800">{user.username}</td>
+                                <td className="px-4 py-3 text-sm text-gray-800">{user.email}</td>
                                 <td className="px-4 py-3 text-sm text-gray-800">{user.name}</td>
-                                <td className="px-4 py-3 text-sm text-gray-800">{user.email || 'N/A'}</td>
+                                <td className="px-4 py-3 text-sm text-gray-800">{getMinistryName(user.ministry_id)}</td>
                                 <td className="px-4 py-3 text-sm text-gray-800">
                                     <span className={`px-2 py-1 text-xs rounded-full font-medium
                                         ${user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}`}
@@ -383,14 +423,20 @@ export default function UserManagement({ users = [], setUsers }) {
                         
                         <form onSubmit={handleUpdateUser} className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Username *</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                                 <input
-                                    type="text"
+                                    type="email"
                                     className="w-full p-2 border border-gray-300 rounded-md"
-                                    value={editUsername}
-                                    onChange={(e) => setEditUsername(e.target.value)}
+                                    value={editEmail}
+                                    onChange={(e) => setEditEmail(e.target.value)}
+                                    placeholder="user@example.com"
                                     required
                                 />
+                                {editEmail && editEmail !== editingUser.email && (
+                                    <p className="mt-1 text-xs text-amber-600">
+                                        Changing email will require re-verification.
+                                    </p>
+                                )}
                             </div>
                             
                             <div>
@@ -405,19 +451,17 @@ export default function UserManagement({ users = [], setUsers }) {
                             </div>
                             
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                                <input
-                                    type="email"
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Ministry</label>
+                                <select
                                     className="w-full p-2 border border-gray-300 rounded-md"
-                                    value={editEmail}
-                                    onChange={(e) => setEditEmail(e.target.value)}
-                                    placeholder="user@example.com"
-                                />
-                                {editEmail && editEmail !== editingUser.email && (
-                                    <p className="mt-1 text-xs text-amber-600">
-                                        Changing email will require re-verification.
-                                    </p>
-                                )}
+                                    value={editMinistry}
+                                    onChange={(e) => setEditMinistry(e.target.value)}
+                                >
+                                    <option value="">None</option>
+                                    {ministries.map(ministry => (
+                                        <option key={ministry.id} value={ministry.id}>{ministry.name}</option>
+                                    ))}
+                                </select>
                             </div>
                             
                             <div>

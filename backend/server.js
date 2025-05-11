@@ -5,7 +5,9 @@ require('dotenv').config();
 const authRoutes = require('./routes/authRoutes');
 const bookingRoutes = require('./routes/bookingRoutes');
 const userRoutes = require('./routes/userRoutes');
-const roomRoutes = require('./routes/roomRoutes'); // Add this line
+const roomRoutes = require('./routes/roomRoutes');
+const ministryRoutes = require('./routes/ministryRoutes');
+const publicRoutes = require('./routes/publicRoutes');
 
 const app = express();
 
@@ -22,7 +24,9 @@ app.use(express.json()); // Parse JSON request bodies
 app.use('/api/auth', authRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/rooms', roomRoutes); // Add this line
+app.use('/api/rooms', roomRoutes);
+app.use('/api/ministries', ministryRoutes);
+app.use('/api/public', publicRoutes);
 
 // Test route to verify server is running
 app.get('/api/test', (req, res) => {

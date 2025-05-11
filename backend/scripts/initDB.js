@@ -41,26 +41,25 @@ const initializeDatabase = async () => {
         });
         await client.connect();
 
-        // Create users table
-        await client.query(`
-            CREATE TABLE IF NOT EXISTS users (
-                id UUID PRIMARY KEY,
-                username VARCHAR(50) UNIQUE NOT NULL,
-                name VARCHAR(100) NOT NULL,
-                ministry_id UUID REFERENCES ministries(id) ON DELETE SET NULL,
-                password VARCHAR(100) NOT NULL,
-                role VARCHAR(20) DEFAULT 'user',
-                email VARCHAR(100) UNIQUE NOT NULL,
-                is_verified BOOLEAN DEFAULT FALSE,
-                verification_token VARCHAR(255)
-            );
-        `);
-
         // Create ministries table
         await client.query(`
             CREATE TABLE IF NOT EXISTS ministries (
                 id UUID PRIMARY KEY,
                 name VARCHAR(100) NOT NULL
+            );
+        `);
+
+        // Create users table
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS users (
+                id UUID PRIMARY KEY,
+                email VARCHAR(100) UNIQUE NOT NULL,
+                name VARCHAR(100) NOT NULL,
+                ministry_id UUID REFERENCES ministries(id) ON DELETE SET NULL,
+                password VARCHAR(100) NOT NULL,
+                role VARCHAR(20) DEFAULT 'user',
+                is_verified BOOLEAN DEFAULT FALSE,
+                verification_token VARCHAR(255)
             );
         `);
 
@@ -115,24 +114,10 @@ const initializeDatabase = async () => {
             );
         `);
 
-        // Create starting users
-        const hashedPassword = await bcrypt.hash('admin', 10);
-        const users = [
-            { id: uuidv4(), username: 'admin', name: 'admin', password: await bcrypt.hash('admin', 10), role: 'admin', email: 'admin@example.com', is_verified: true, verification_token: null },    
-            { id: uuidv4(), username: 'user', name: 'user', password: await bcrypt.hash('user', 10), role: 'user', email: 'user@example.com', is_verified: true, verification_token: null },
-        ];
-
-        for (const user of users) {
-            await client.query(`
-                INSERT INTO users (id, username, name, password, role, email, is_verified, verification_token)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                ON CONFLICT (username) DO NOTHING;
-            `, [user.id, user.username, user.name, user.password, user.role, user.email, user.is_verified, user.verification_token]);
-        }
-
+        const commsMinistryId = uuidv4();
         // Create starting ministries
         const ministries = [
-            { id: uuidv4(), name: 'Alcholic Anonymous' },
+            { id: uuidv4(), name: 'Alcoholics Anonymous' },
             { id: uuidv4(), name: 'Altar Servers' },
             { id: uuidv4(), name: 'Antioch' },
             { id: uuidv4(), name: 'BSC Choir' },
@@ -147,6 +132,7 @@ const initializeDatabase = async () => {
             { id: uuidv4(), name: 'Catechism L8' },
             { id: uuidv4(), name: 'Catechism L9' },
             { id: uuidv4(), name: 'Catechist of the Good Shepherd (CGS)' },
+            { id: commsMinistryId, name: 'Communications (Comms)' },
             { id: uuidv4(), name: 'Communion Ministers' },
             { id: uuidv4(), name: 'Executive Committee (ExCo)' },
             { id: uuidv4(), name: 'El Shaddai' },
@@ -171,10 +157,23 @@ const initializeDatabase = async () => {
             await client.query(`
                 INSERT INTO ministries (id, name)
                 VALUES ($1, $2)
-                ON CONFLICT (name) DO NOTHING;
             `, [ministry.id, ministry.name]);
         }
 
+        // Create starting users
+        const users = [
+            { id: uuidv4(), name: 'admin', ministry_id: commsMinistryId, password: await bcrypt.hash('admin', 10), role: 'admin', email: 'admin@example.com', is_verified: true, verification_token: null },    
+            { id: uuidv4(), name: 'user', ministry_id: commsMinistryId, password: await bcrypt.hash('user', 10), role: 'user', email: 'user@example.com', is_verified: true, verification_token: null },
+        ];
+
+        for (const user of users) {
+            await client.query(`
+                INSERT INTO users (id, name, ministry_id, password, role, email, is_verified, verification_token)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            `, [user.id, user.name, user.ministry_id, user.password, user.role, user.email, user.is_verified, user.verification_token]);
+        }
+
+        console.log('All tables and starting users created successfully');
         // Create starting rooms
         const rooms = [
             { id: uuidv4(), name: 'Damien Hall', floor: 1, pax: 100 },

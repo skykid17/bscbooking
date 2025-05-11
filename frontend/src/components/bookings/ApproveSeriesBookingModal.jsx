@@ -10,11 +10,41 @@ export default function ApproveSeriesBookingModal({ booking, onClose, onApproved
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [action, setAction] = useState('approve'); // 'approve' or 'reject'
+    const [ministries, setMinistries] = useState([]);
     
     useEffect(() => {
         // Check if this is part of a series
         setIsSeriesBooking(booking?.seriesId ? true : false);
     }, [booking]);
+
+    // Fetch ministries for display
+    useEffect(() => {
+        const fetchMinistries = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await axios.get(
+                    `${API_BASE_URL}/ministries`,
+                    {
+                        headers: { 
+                            'Authorization': `Bearer ${token}`
+                        }
+                    }
+                );
+                setMinistries(response.data);
+            } catch (error) {
+                console.error('Error fetching ministries:', error);
+            }
+        };
+        
+        fetchMinistries();
+    }, []);
+
+    // Helper to get ministry name from ID
+    const getMinistryName = (ministryId) => {
+        if (!ministryId) return '';
+        const ministry = ministries.find(m => m.id === ministryId);
+        return ministry ? ministry.name : '';
+    };
     
     const handleApproveReject = (action) => {
         try {
@@ -104,6 +134,9 @@ export default function ApproveSeriesBookingModal({ booking, onClose, onApproved
                         </p>
                         <p className="text-sm text-gray-600 mt-1">
                             Requested by: {booking?.userName}
+                            {booking?.ministry_id && (
+                                <span className="ml-1">({getMinistryName(booking.ministry_id)})</span>
+                            )}
                         </p>
                     </div>
                 </div>
