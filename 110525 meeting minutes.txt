@@ -1,0 +1,20 @@
+No backdate booking DONE
+
+Add ministry field (1 user 1 ministry)
+
+3 Days prior to booking
+Auto approval
+Email notification
+
+Within 3 Days pending
+Approval 
+
+Add "Church", but notify user to contact secretary
+
+Terms and Conditions (before book button)
+
+26 June (Thursday) - 8pm
+
+Check w uncle paul
+
+room management create user bug

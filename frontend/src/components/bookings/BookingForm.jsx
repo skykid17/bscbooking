@@ -52,6 +52,77 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
         new Date(today.getFullYear(), today.getMonth() + 3, today.getDate()).toISOString().split('T')[0]
     );
 
+    // Generate time slots (6:00 AM to 12:00 AM in 30-minute increments)
+    const generateTimeSlots = (isToday = false) => {
+        const slots = [];
+        for (let hour = 6; hour <= 22; hour++) {
+            const hourFormatted = hour.toString().padStart(2, '0');
+            slots.push(`${hourFormatted}:00`);
+            slots.push(`${hourFormatted}:30`);
+        }
+        slots.push('23:00');
+        
+        // If date is today, filter out past time slots
+        if (isToday) {
+            const now = new Date();
+            const currentHour = now.getHours();
+            const currentMinute = now.getMinutes();
+            
+            // Calculate the next 30-minute interval
+            let nextSlotHour = currentHour;
+            let nextSlotMinute = currentMinute < 30 ? 30 : 0;
+            
+            if (currentMinute >= 30) {
+                nextSlotHour += 1;
+            }
+            
+            // Format the next available time slot
+            const nextTimeSlot = `${nextSlotHour.toString().padStart(2, '0')}:${nextSlotMinute.toString().padStart(2, '0')}`;
+            
+            // Filter slots to only include the next available time and onwards
+            return slots.filter(slot => slot >= nextTimeSlot);
+        }
+        
+        return slots;
+    };
+
+    const [startTimeSlots, setStartTimeSlots] = useState([]);
+    const [endTimeSlots, setEndTimeSlots] = useState([]);
+    
+    // Generate base time slots (all possible slots)
+    const allTimeSlots = generateTimeSlots();
+    
+    // Update time slots when dates change
+    useEffect(() => {
+        const isStartDateToday = startDate === formattedToday;
+        
+        // Set start time slots based on whether start date is today
+        const newStartTimeSlots = isStartDateToday ? generateTimeSlots(true) : allTimeSlots;
+        setStartTimeSlots(newStartTimeSlots);
+        
+        // If start time is no longer in the available slots, update it to the first available
+        if (newStartTimeSlots.length > 0 && !newStartTimeSlots.includes(startTime)) {
+            setStartTime(newStartTimeSlots[0]);
+        }
+        
+        // Update end time slots based on start date and time
+        updateEndTimeSlots(startDate, endDate, newStartTimeSlots.includes(startTime) ? startTime : newStartTimeSlots[0]);
+    }, [startDate, endDate, formattedToday]);
+    
+    // Function to update end time slots based on current selections
+    const updateEndTimeSlots = (start, end, selectedStartTime) => {
+        const newEndTimeSlots = start === end 
+            ? allTimeSlots.filter(time => time >= selectedStartTime)
+            : allTimeSlots;
+            
+        setEndTimeSlots(newEndTimeSlots);
+        
+        // If end time is no longer valid, update it
+        if (newEndTimeSlots.length > 0 && !newEndTimeSlots.includes(endTime)) {
+            setEndTime(newEndTimeSlots[0]);
+        }
+    };
+
     // Fetch all users if current user is admin
     useEffect(() => {
         if (user.role === 'admin') {
@@ -90,20 +161,6 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
             setSelectedUserName(user.name);
         }
     };
-    
-    // Generate time slots (6:00 AM to 12:00 AM in 30-minute increments)
-    const generateTimeSlots = () => {
-        const slots = [];
-        for (let hour = 6; hour <= 22; hour++) {
-            const hourFormatted = hour.toString().padStart(2, '0');
-            slots.push(`${hourFormatted}:00`);
-            slots.push(`${hourFormatted}:30`);
-        }
-        slots.push('23:00');
-        return slots;
-    };
-    
-    const timeSlots = generateTimeSlots();
     
     // Generate numbers 1-31 for day of month selection
     const daysInMonth = Array.from({ length: 31 }, (_, i) => i + 1);
@@ -287,10 +344,21 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
     const resetForm = () => {
         setRoom(rooms.length > 0 ? rooms[0].name : "");
         setEventName('');
+        
+        // Reset dates
         setStartDate(formattedToday);
         setEndDate(formattedToday);
-        setStartTime('09:00');
-        setEndTime('10:00');
+        
+        // Reset to default times, but respect current time if today
+        const isToday = true; // Always true for reset since we're setting to today
+        const newStartTimeSlots = generateTimeSlots(isToday);
+        const defaultStartTime = newStartTimeSlots.length > 0 ? newStartTimeSlots[0] : '09:00';
+        setStartTime(defaultStartTime);
+        
+        const defaultEndTime = newStartTimeSlots.length > 1 ? newStartTimeSlots[1] : '10:00';
+        setEndTime(defaultEndTime);
+        
+        // Reset frequency options
         setFrequency('single');
         setRepeatInterval(1);
         setWeekDays({
@@ -675,8 +743,15 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
                         className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         value={startDate}
                         onChange={(e) => {
-                            setStartDate(e.target.value);
-                            if (endDate < e.target.value) setEndDate(e.target.value);
+                            const newStartDate = e.target.value;
+                            setStartDate(newStartDate);
+                            
+                            // If end date is before new start date, update end date
+                            if (endDate < newStartDate) {
+                                setEndDate(newStartDate);
+                            }
+                            
+                            // Time slots will be updated in the useEffect
                         }}
                         min={formattedToday}
                         required
@@ -689,7 +764,12 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
                         type="date"
                         className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         value={endDate}
-                        onChange={(e) => setEndDate(e.target.value)}
+                        onChange={(e) => {
+                            const newEndDate = e.target.value;
+                            setEndDate(newEndDate);
+                            
+                            // Time slots will be updated in the useEffect
+                        }}
                         min={startDate}
                         required
                     />
@@ -701,13 +781,18 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
                         className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         value={startTime}
                         onChange={(e) => {
-                            setStartTime(e.target.value);
-                            if (endTime <= e.target.value) setEndTime(e.target.value);
+                            const newStartTime = e.target.value;
+                            setStartTime(newStartTime);
+                            // Update end time if needed
+                            updateEndTimeSlots(startDate, endDate, newStartTime);
+                            // If on same day and end time is before new start time, update end time
+                            if (startDate === endDate && endTime < newStartTime) {
+                                setEndTime(newStartTime);
+                            }
                         }}
-                        
                         required
                     >
-                        {timeSlots.map(time => (
+                        {startTimeSlots.map(time => (
                             <option key={`start-${time}`} value={time}>{time}</option>
                         ))}
                     </select>
@@ -720,11 +805,15 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
                         value={endTime}
                         onChange={(e) => {
                             setEndTime(e.target.value);
-                            if (startTime >= e.target.value) setStartTime(e.target.value);
+                            if (startDate === endDate && startTime >= e.target.value) {
+                                setStartTime(e.target.value);
+                                // Since start time changed, also update end time slots
+                                updateEndTimeSlots(startDate, endDate, e.target.value);
+                            }
                         }}
                         required
                     >
-                        {timeSlots.map(time => (
+                        {endTimeSlots.map(time => (
                             <option key={`end-${time}`} value={time}>{time}</option>
                         ))}
                     </select>

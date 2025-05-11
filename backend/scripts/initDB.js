@@ -47,11 +47,20 @@ const initializeDatabase = async () => {
                 id UUID PRIMARY KEY,
                 username VARCHAR(50) UNIQUE NOT NULL,
                 name VARCHAR(100) NOT NULL,
+                ministry_id UUID REFERENCES ministries(id) ON DELETE SET NULL,
                 password VARCHAR(100) NOT NULL,
                 role VARCHAR(20) DEFAULT 'user',
                 email VARCHAR(100) UNIQUE NOT NULL,
                 is_verified BOOLEAN DEFAULT FALSE,
                 verification_token VARCHAR(255)
+            );
+        `);
+
+        // Create ministries table
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS ministries (
+                id UUID PRIMARY KEY,
+                name VARCHAR(100) NOT NULL
             );
         `);
 
@@ -74,8 +83,7 @@ const initializeDatabase = async () => {
                 repeat_interval INT DEFAULT 1,
                 repeat_on JSON DEFAULT NULL,
                 ends_after INT DEFAULT NULL,
-                ends_on DATE DEFAULT NULL,
-                created_at TIMESTAMP DEFAULT NOW()
+                ends_on DATE DEFAULT NULL
             );
         `);
 
@@ -84,8 +92,8 @@ const initializeDatabase = async () => {
             CREATE TABLE IF NOT EXISTS bookings (
                 id UUID PRIMARY KEY,
                 user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-                user_name VARCHAR(255) NOT NULL,
-                room VARCHAR(255) NOT NULL,
+                ministry_id UUID REFERENCES ministries(id) ON DELETE SET NULL,
+                room_id UUID REFERENCES rooms(id) ON DELETE SET NULL,
                 event_name VARCHAR(255) NOT NULL,
                 start_datetime TIMESTAMP NOT NULL,
                 end_datetime TIMESTAMP NOT NULL,
@@ -122,12 +130,55 @@ const initializeDatabase = async () => {
             `, [user.id, user.username, user.name, user.password, user.role, user.email, user.is_verified, user.verification_token]);
         }
 
+        // Create starting ministries
+        const ministries = [
+            { id: uuidv4(), name: 'Alcholic Anonymous' },
+            { id: uuidv4(), name: 'Altar Servers' },
+            { id: uuidv4(), name: 'Antioch' },
+            { id: uuidv4(), name: 'BSC Choir' },
+            { id: uuidv4(), name: 'Blessed Family Group (BFG)' },
+            { id: uuidv4(), name: 'Catechism L1' },
+            { id: uuidv4(), name: 'Catechism L2' },
+            { id: uuidv4(), name: 'Catechism L3' },
+            { id: uuidv4(), name: 'Catechism L4' },
+            { id: uuidv4(), name: 'Catechism L5' },
+            { id: uuidv4(), name: 'Catechism L6' },
+            { id: uuidv4(), name: 'Catechism L7' },
+            { id: uuidv4(), name: 'Catechism L8' },
+            { id: uuidv4(), name: 'Catechism L9' },
+            { id: uuidv4(), name: 'Catechist of the Good Shepherd (CGS)' },
+            { id: uuidv4(), name: 'Communion Ministers' },
+            { id: uuidv4(), name: 'Executive Committee (ExCo)' },
+            { id: uuidv4(), name: 'El Shaddai' },
+            { id: uuidv4(), name: 'Emmaus' },
+            { id: uuidv4(), name: 'Hospitality' },
+            { id: uuidv4(), name: 'Lectors' },
+            { id: uuidv4(), name: 'Liturgical Committee' },
+            { id: uuidv4(), name: 'Ladies of the Altar' },
+            { id: uuidv4(), name: 'Legion of Mary Junior' },
+            { id: uuidv4(), name: 'Legion of Mary Senior' },
+            { id: uuidv4(), name: 'Lumen Christi Chorus (LCC)' },
+            { id: uuidv4(), name: 'Neighbourhood Christian Community (NCC)' },
+            { id: uuidv4(), name: 'RCIA' },
+            { id: uuidv4(), name: 'St Francis Music Ministry (SFMM)' },
+            { id: uuidv4(), name: 'Santa Maria Choir (SMC)' },
+            { id: uuidv4(), name: 'St. Vincent de Paul Society (SVDP)' },
+            { id: uuidv4(), name: 'Parish Conversion Group (PCG)' },
+            { id: uuidv4(), name: 'Youth Community' },
+        ]
+
+        for (const ministry of ministries) {
+            await client.query(`
+                INSERT INTO ministries (id, name)
+                VALUES ($1, $2)
+                ON CONFLICT (name) DO NOTHING;
+            `, [ministry.id, ministry.name]);
+        }
+
         // Create starting rooms
         const rooms = [
-            { id: uuidv4(), name: 'Father Damien Hall', floor: 1, pax: 100 },
+            { id: uuidv4(), name: 'Damien Hall', floor: 1, pax: 100 },
             { id: uuidv4(), name: 'Holy Family', floor: 3, pax: 20 },
-            { id: uuidv4(), name: 'Twin Hearts Library', floor: 3, pax: 20 },
-            { id: uuidv4(), name: 'Pastorial Worker\'s Office', floor: 4, pax: 10 },
             { id: uuidv4(), name: 'St. Andrew', floor: 4, pax: 20 },
             { id: uuidv4(), name: 'St. Bartholomew (Music Room)', floor: 4, pax: 20 },
             { id: uuidv4(), name: 'St. James Alphesus', floor: 3, pax: 20 },

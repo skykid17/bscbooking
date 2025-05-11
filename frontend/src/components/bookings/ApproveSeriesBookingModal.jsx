@@ -41,10 +41,10 @@ export default function ApproveSeriesBookingModal({ booking, onClose, onApproved
             let url = '';
 
             if (isSeriesBooking) {
-                url = `{${API_BASE_URL}}/bookings/series/${booking.id}/${action}`;
+                url = `${API_BASE_URL}/bookings/series/${booking.id}/${action}`;
                 url += action === 'approve' ? `?approveType=${approveType}` : `?rejectType=${approveType}`;
             } else {
-                url = `{${API_BASE_URL}}/bookings/${booking.id}/${action}`;
+                url = `${API_BASE_URL}/bookings/${booking.id}/${action}`;
             }
 
             await axios.put(url, {}, {

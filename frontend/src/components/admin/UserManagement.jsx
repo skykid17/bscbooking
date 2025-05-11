@@ -143,7 +143,7 @@ export default function UserManagement({ users = [], setUsers }) {
             }
             
             const response = await axios.put(
-                `${API_BASE_URL}/api/users/${editingUser.id}`,
+                `${API_BASE_URL}/users/${editingUser.id}`,
                 userData,
                 {
                     headers: { 
@@ -186,7 +186,7 @@ export default function UserManagement({ users = [], setUsers }) {
             const token = localStorage.getItem('token');
             
             await axios.delete(
-                `${API_BASE_URL}/api/users/${userId}`,
+                `${API_BASE_URL}/users/${userId}`,
                 {
                     headers: { 
                         'Authorization': `Bearer ${token}`

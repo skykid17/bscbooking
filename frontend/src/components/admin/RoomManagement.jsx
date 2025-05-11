@@ -69,7 +69,6 @@ export default function RoomManagement({ rooms, setRooms }) {
             setLoading(true);
             const token = localStorage.getItem('token');
             
-            // Use the correct API endpoint for room creation (should be /rooms, not /api/rooms)
             const response = await axios.post(
                 `${VITE_API_URL}/rooms`,
                 { 
@@ -129,7 +128,7 @@ export default function RoomManagement({ rooms, setRooms }) {
             const token = localStorage.getItem('token');
             
             await axios.put(
-                `${VITE_API_URL}/api/rooms/${editingRoom.id}`,
+                `${VITE_API_URL}/rooms/${editingRoom.id}`,
                 { 
                     name: editName, 
                     floor: parseInt(editFloor), 
@@ -153,7 +152,10 @@ export default function RoomManagement({ rooms, setRooms }) {
             );
             
             setRoomsData(updatedRoomsData);
-            setRooms(updatedRoomsData.map(room));
+            setRooms(updatedRoomsData.map(room => ({
+                id: room.id,
+                name: room.name
+            })));
             setSuccess('Room updated successfully');
             setEditingRoom(null);
         } catch (error) {
