@@ -61,19 +61,37 @@ export default function CalendarView({ room, bookings = [] }) {
     
     // Get bookings for a specific day
     const getBookingsForDay = (date) => {
-        // Convert the calendar day to a date string (YYYY-MM-DD) for comparison
-        const calendarDateStr = date.toISOString().split('T')[0];
+        // Format the calendar date as YYYY-MM-DD for comparison
+        const calendarYear = date.getFullYear();
+        const calendarMonth = String(date.getMonth() + 1).padStart(2, '0');
+        const calendarDay = String(date.getDate()).padStart(2, '0');
+        const calendarDateStr = `${calendarYear}-${calendarMonth}-${calendarDay}`;
         
         return filteredBookings.filter(booking => {
-            // Extract just the date parts (YYYY-MM-DD) from the ISO strings
-            const startDateStr = new Date(booking.startDateTime).toISOString().split('T')[0];
-            const endDateStr = new Date(booking.endDateTime).toISOString().split('T')[0];
-            
-            // Check if the calendar date is between or equal to the start/end dates
-            return (
-                calendarDateStr >= startDateStr && 
-                calendarDateStr <= endDateStr
-            );
+            try {
+                // Format booking start date
+                const startDate = new Date(booking.startDateTime);
+                const startYear = startDate.getFullYear();
+                const startMonth = String(startDate.getMonth() + 1).padStart(2, '0');
+                const startDay = String(startDate.getDate()).padStart(2, '0');
+                const startDateStr = `${startYear}-${startMonth}-${startDay}`;
+                
+                // Format booking end date
+                const endDate = new Date(booking.endDateTime);
+                const endYear = endDate.getFullYear();
+                const endMonth = String(endDate.getMonth() + 1).padStart(2, '0');
+                const endDay = String(endDate.getDate()).padStart(2, '0');
+                const endDateStr = `${endYear}-${endMonth}-${endDay}`;
+                
+                // Check if calendar date is within the booking date range
+                return (
+                    calendarDateStr >= startDateStr && 
+                    calendarDateStr <= endDateStr
+                );
+            } catch (error) {
+                console.error("Error parsing date:", error, booking);
+                return false;
+            }
         });
     };
     

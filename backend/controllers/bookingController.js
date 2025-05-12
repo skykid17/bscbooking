@@ -250,7 +250,7 @@ exports.getBookings = async (req, res) => {
             id: booking.id,
             userId: booking.user_id,
             userName: booking.user_name,
-            ministry_id: booking.ministry_id,
+            ministryId: booking.ministry_id,
             ministryName: booking.ministry_name,
             room: booking.room,
             roomId: booking.room_id,
@@ -264,7 +264,7 @@ exports.getBookings = async (req, res) => {
             approvedBy: booking.approved_by,
             seriesId: booking.series_id
         }));
-
+        console.log("Bookings fetched successfully:", formattedBookings);
         res.json(formattedBookings);
     } catch (error) {
         console.error("Error fetching bookings:", error);
@@ -426,7 +426,7 @@ exports.getUserBookings = async (req, res) => {
             id: booking.id,
             userId: booking.user_id,
             userName: booking.user_name,
-            ministry_id: booking.ministry_id,
+            ministryId: booking.ministry_id,
             ministryName: booking.ministry_name,
             room: booking.room,
             roomId: booking.room_id,

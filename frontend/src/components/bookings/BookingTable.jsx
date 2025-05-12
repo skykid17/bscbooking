@@ -1,6 +1,7 @@
-import { formatDate } from '../../utils/dateUtils'; // Adjust the import path as necessary
+import { formatDate, formatBookingDateTime } from '../../utils/dateUtils';
 
 export default function BookingTable({ bookings, onEditClick, onDeleteClick, user }) {
+    console.log("BookingTable received bookings:", bookings);
 
     // Check if user can edit a booking (only if status is pending)
     const canEdit = (booking) => {
@@ -28,10 +29,10 @@ export default function BookingTable({ bookings, onEditClick, onDeleteClick, use
                                 {booking.createdAt ? formatDate(booking.createdAt) : formatDate(new Date())}
                             </td>
                             <td className="px-4 py-3 text-sm text-gray-800">{booking.room}</td>
-                            <td className="px-4 py-3 text-sm text-gray-800">{booking.startDateTime}</td>
-                            <td className="px-4 py-3 text-sm text-gray-800">{booking.endDateTime}</td>
+                            <td className="px-4 py-3 text-sm text-gray-800">{formatBookingDateTime(booking.startDateTime)}</td>
+                            <td className="px-4 py-3 text-sm text-gray-800">{formatBookingDateTime(booking.endDateTime)}</td>
                             <td className="px-4 py-3 text-sm text-gray-800 font-medium">
-                                {booking.eventName}
+                                {booking.eventName || 'No event name'}
                             </td>
                             <td className="px-4 py-3 text-sm">
                                 <span className={`px-2 py-1 text-xs rounded-full font-medium

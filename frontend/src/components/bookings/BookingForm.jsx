@@ -24,7 +24,19 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
     const [users, setUsers] = useState([]);
     const [selectedUserId, setSelectedUserId] = useState(user.id);
     const [loadingUsers, setLoadingUsers] = useState(false);
-    
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const handleSearch = (e) => {
+        setSearchTerm(e.target.value);
+    };
+
+    const filterUsers = () => {
+        const terms = searchTerm.toLowerCase().split(' ');
+        return users.filter(u => {
+            const userInfo = `${u.name.toLowerCase()} ${u.email.toLowerCase()}`;
+            return terms.every(term => userInfo.includes(term));
+        });
+    };
     // For ministry selection
     const [ministries, setMinistries] = useState([]);
     const [selectedMinistryId, setSelectedMinistryId] = useState(user.ministry_id || '');
@@ -697,6 +709,14 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
                 {user.role === 'admin' && (
                     <div className="md:col-span-1">
                         <label className="block text-sm font-medium text-gray-700 mb-1">Book for User *</label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <input
+                            type="text"
+                            placeholder="Filter search by name or email"
+                            className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            value={searchTerm}
+                            onChange={handleSearch}
+                        />
                         <select
                             className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             value={selectedUserId}
@@ -709,17 +729,17 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
                             ) : (
                                 <>
                                     <option value={user.id}>{user.name} (You)</option>
-                                    {users
-                                        .filter(u => u.id !== user.id) // Filter out the current admin
+                                    {filterUsers()
+                                        .filter(u => u.id !== user.id)
                                         .map(u => (
                                             <option key={u.id} value={u.id}>
-                                                {u.name} ({u.ministry_id ? u.ministry.name : 'No Ministry'})
+                                                {u.name} ({u.email})
                                             </option>
-                                        ))
-                                    }
+                                        ))}
                                 </>
                             )}
                         </select>
+                        </div>
                     </div>
                 )}
                 

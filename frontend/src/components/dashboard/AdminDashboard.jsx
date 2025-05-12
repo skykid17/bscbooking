@@ -95,10 +95,13 @@ export default function AdminDashboard({ user }) {
                 id: booking.id,
                 userId: booking.user_id,
                 userName: booking.user_name,
-                room: booking.room,
+                roomId: booking.room_id,
+                room: booking.room_name,
+                ministryId: booking.ministry_id,
+                ministryName: booking.ministry_name,
                 eventName: booking.event_name,
-                startDateTime: booking.start_datetime, // Make sure this is a valid date string
-                endDateTime: booking.end_datetime,     // Make sure this is a valid date string
+                startDateTime: booking.start_datetime, 
+                endDateTime: booking.end_datetime,
                 frequency: booking.frequency,
                 status: booking.status,
                 createdAt: booking.created_at,
@@ -106,7 +109,7 @@ export default function AdminDashboard({ user }) {
                 approvedBy: booking.approved_by,
                 seriesId: booking.series_id
             }));
-            
+            console.log('Formatted bookings:', formattedBookings);
             setBookings(formattedBookings);
             
             // Re-apply filters if any are active
@@ -129,6 +132,7 @@ export default function AdminDashboard({ user }) {
     // Use the named function in useEffect
     useEffect(() => {
         fetchBookings();
+        console.log('Bookings fetched:', bookings);
     }, [fetchBookings]);
     
     // Fetch all users

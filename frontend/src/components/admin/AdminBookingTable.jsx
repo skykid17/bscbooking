@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import EditSeriesBookingModal from '../bookings/EditSeriesBookingModal';
 import DeleteSeriesBookingModal from '../bookings/DeleteSeriesBookingModal'; 
 import ApproveSeriesBookingModal from '../bookings/ApproveSeriesBookingModal';
-import { formatDateTime, formatDate } from '../../utils/dateUtils';
+import { formatDateTime, formatDate, formatBookingDateTime } from '../../utils/dateUtils';
 import axios from 'axios';
 import { API_BASE_URL } from '../../utils/apiConfig';
 
 export default function AdminBookingTable({ bookings, onApprove, onReject, onEdit, onDelete, onRefresh, rooms }) {
+    console.log("AdminBookingTable received bookings:", bookings);
+    
     const [editBooking, setEditBooking] = useState(null);
     const [deleteBooking, setDeleteBooking] = useState(null);
     const [approveBooking, setApproveBooking] = useState(null);
@@ -102,16 +104,16 @@ export default function AdminBookingTable({ bookings, onApprove, onReject, onEdi
                 <tbody>
                     {bookings.map(booking => (
                         <tr key={booking.id} className="border-b hover:bg-gray-50">
-                            <td className="px-4 py-3 text-sm">{booking.userName}</td>
+                            <td className="px-4 py-3 text-sm">{booking.userName || 'Unknown User'}</td>
                             <td className="px-4 py-3 text-sm">{getMinistryName(booking.ministry_id)}</td>
                             <td className="px-4 py-3 text-sm">
                                 {booking.createdAt ? formatDate(booking.createdAt) : formatDate(new Date())}
                             </td>
-                            <td className="px-4 py-3 text-sm">{booking.room}</td>
-                            <td className="px-4 py-3 text-sm">{formatDateTime(booking.startDateTime)}</td>
-                            <td className="px-4 py-3 text-sm">{formatDateTime(booking.endDateTime)}</td>
+                            <td className="px-4 py-3 text-sm">{booking.roomName}</td>
+                            <td className="px-4 py-3 text-sm">{formatBookingDateTime(booking.startDateTime)}</td>
+                            <td className="px-4 py-3 text-sm">{formatBookingDateTime(booking.endDateTime)}</td>
                             <td className="px-4 py-3 text-sm font-medium">
-                                {booking.eventName}
+                                {booking.eventName || 'No event name'}
                             </td>
                             <td className="px-4 py-3 text-sm">
                                 {booking.seriesId ? (
