@@ -91,35 +91,15 @@ export default function AdminDashboard({ user }) {
             );
             
             // Format the data from backend to match frontend structure
-            const formattedBookings = response.data.map(booking => ({
-                id: booking.id,
-                userId: booking.user_id,
-                userName: booking.user_name,
-                roomId: booking.room_id,
-                room: booking.room_name,
-                ministryId: booking.ministry_id,
-                ministryName: booking.ministry_name,
-                eventName: booking.event_name,
-                startDateTime: booking.start_datetime, 
-                endDateTime: booking.end_datetime,
-                frequency: booking.frequency,
-                status: booking.status,
-                createdAt: booking.created_at,
-                approvedAt: booking.approved_at,
-                approvedBy: booking.approved_by,
-                seriesId: booking.series_id
-            }));
-            console.log('Formatted bookings:', formattedBookings);
-            setBookings(formattedBookings);
+            setBookings(response.data);
             
             // Re-apply filters if any are active
             if (userId || roomFilter || dateFilter || statusFilter) {
                 handleFilter(userId, roomFilter, dateFilter, statusFilter);
             } else {
-                setFilteredBookings(formattedBookings);
+                setFilteredBookings(response.data);
             }
-            
-            return formattedBookings;
+            return response.data;
         } catch (error) {
             console.error('Error fetching bookings:', error);
             toast.error('Failed to refresh booking data');

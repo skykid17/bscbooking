@@ -105,7 +105,7 @@ export default function AdminBookingTable({ bookings, onApprove, onReject, onEdi
                     {bookings.map(booking => (
                         <tr key={booking.id} className="border-b hover:bg-gray-50">
                             <td className="px-4 py-3 text-sm">{booking.userName || 'Unknown User'}</td>
-                            <td className="px-4 py-3 text-sm">{getMinistryName(booking.ministry_id)}</td>
+                            <td className="px-4 py-3 text-sm">{booking.ministryName || 'Unknown Ministry'}</td>
                             <td className="px-4 py-3 text-sm">
                                 {booking.createdAt ? formatDate(booking.createdAt) : formatDate(new Date())}
                             </td>

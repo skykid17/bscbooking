@@ -196,7 +196,7 @@ exports.getBookings = async (req, res) => {
         // Build a query that joins with room and user tables to get names
         let query = `
             SELECT b.*, 
-                   r.name as room, 
+                   r.name as room_name, 
                    u.name as user_name, 
                    m.name as ministry_name
             FROM bookings b
@@ -252,8 +252,8 @@ exports.getBookings = async (req, res) => {
             userName: booking.user_name,
             ministryId: booking.ministry_id,
             ministryName: booking.ministry_name,
-            room: booking.room,
             roomId: booking.room_id,
+            roomName: booking.room_name,
             eventName: booking.event_name,
             startDateTime: booking.start_datetime,
             endDateTime: booking.end_datetime,

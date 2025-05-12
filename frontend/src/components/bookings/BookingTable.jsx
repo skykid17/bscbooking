@@ -28,7 +28,7 @@ export default function BookingTable({ bookings, onEditClick, onDeleteClick, use
                             <td className="px-4 py-3 text-sm text-gray-500">
                                 {booking.createdAt ? formatDate(booking.createdAt) : formatDate(new Date())}
                             </td>
-                            <td className="px-4 py-3 text-sm text-gray-800">{booking.room}</td>
+                            <td className="px-4 py-3 text-sm text-gray-800">{booking.roomName}</td>
                             <td className="px-4 py-3 text-sm text-gray-800">{formatBookingDateTime(booking.startDateTime)}</td>
                             <td className="px-4 py-3 text-sm text-gray-800">{formatBookingDateTime(booking.endDateTime)}</td>
                             <td className="px-4 py-3 text-sm text-gray-800 font-medium">
