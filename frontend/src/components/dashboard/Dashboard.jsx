@@ -32,22 +32,13 @@ export default function Dashboard({ user }) {
             
             // Format the data from backend
             const formattedBookings = response.data.map(booking => ({
-                id: booking.id,
-                userId: booking.user_id,
-                userName: booking.user_name,
-                room: booking.room,
-                eventName: booking.event_name,
-                startDateTime: booking.start_datetime,
-                endDateTime: booking.end_datetime,
-                frequency: booking.frequency,
-                status: booking.status,
-                createdAt: booking.created_at,
-                approvedAt: booking.approved_at,
-                seriesId: booking.series_id
+                ...booking,
+                type: booking.seriesId ? 'Recurring' : 'Single' // Add type field
             }));
 
             // Update bookings state
             setBookings(formattedBookings);
+            console.log("Bookings set in Dashboard:", formattedBookings);
             return formattedBookings;
         } catch (error) {
             console.error('Error fetching bookings:', error);

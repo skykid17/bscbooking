@@ -248,10 +248,8 @@ export default function CalendarView({ room, bookings = [] }) {
                                                 : 'bg-blue-50 text-blue-600 hover:bg-blue-100 border-l-4 border-blue-300'}`}
                                             onClick={() => handleBookingClick(booking)}
                                         >
-                                            <div className="font-medium truncate">
+                                            <div className="font-medium truncate flex justify-between text-xs text-blue-700 flex-wrap">
                                                 {booking.eventName}
-                                            </div>
-                                            <div className="flex justify-between text-xs text-blue-700 flex-wrap">
                                                 {doesBookingStartOnDay(booking, day.date) ? (
                                                     <span>
                                                         {formatTimeDisplay(booking.startDateTime)}-
@@ -260,8 +258,10 @@ export default function CalendarView({ room, bookings = [] }) {
                                                 ) : (
                                                     <span className="italic">continued</span>
                                                 )}
+                                            </div>
+                                            <div className="">
                                                 {booking.ministryName && (
-                                                    <span className="italic ml-1 truncate">{booking.ministryName}</span>
+                                                    <span className="italic truncate">{booking.ministryName}</span>
                                                 )}
                                             </div>
                                         </div>

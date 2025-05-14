@@ -18,6 +18,11 @@ export default function MyBookings({ user, rooms, bookings, setBookings }) {
     const [editBooking, setEditBooking] = useState(null);
     const [deleteBooking, setDeleteBooking] = useState(null);
     
+    // Add debug logging to inspect the bookings prop
+    useEffect(() => {
+        console.log("MyBookings received bookings:", bookings);
+    }, [bookings]);
+    
     // Define fetchBookings as a memoized function with useCallback
     const fetchBookings = useCallback(async () => {
         try {
@@ -41,26 +46,11 @@ export default function MyBookings({ user, rooms, bookings, setBookings }) {
                 }
             );
             
-            const formattedBookings = response.data.map(booking => ({
-                id: booking.id,
-                userId: booking.user_id,
-                userName: booking.user_name,
-                room: booking.room,
-                eventName: booking.event_name,
-                startDateTime: formatDateTime(booking.start_datetime),
-                endDateTime: formatDateTime(booking.end_datetime),
-                frequency: booking.frequency,
-                status: booking.status,
-                createdAt: booking.created_at,
-                approvedAt: booking.approved_at,
-                seriesId: booking.series_id
-            }));
-            
-            setFilteredBookings(formattedBookings);
+            setFilteredBookings(response.data);
             setBookings(prev => {
                 // Merge existing bookings with new ones, avoiding duplicates by ID
                 const existingIds = new Set(prev.map(b => b.id));
-                const newBookings = formattedBookings.filter(b => !existingIds.has(b.id));
+                const newBookings = response.data.filter(b => !existingIds.has(b.id));
                 return [...prev, ...newBookings];
             });
             
@@ -69,7 +59,7 @@ export default function MyBookings({ user, rooms, bookings, setBookings }) {
                 handleFilter(selectedRoom, selectedDate);
             }
             
-            return formattedBookings;
+            return response.data;
         } catch (error) {
             console.error('Error fetching bookings:', error);
             // Fall back to local data if API fails

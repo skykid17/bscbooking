@@ -15,9 +15,11 @@ export default function BookingTable({ bookings, onEditClick, onDeleteClick, use
                     <tr>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created Date</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Room</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ministry</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Event</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
@@ -28,11 +30,15 @@ export default function BookingTable({ bookings, onEditClick, onDeleteClick, use
                             <td className="px-4 py-3 text-sm text-gray-500">
                                 {booking.createdAt ? formatDate(booking.createdAt) : formatDate(new Date())}
                             </td>
-                            <td className="px-4 py-3 text-sm text-gray-800">{booking.roomName}</td>
+                            <td className="px-4 py-3 text-sm text-gray-800">{booking.room}</td>
+                            <td className="px-4 py-3 text-sm text-gray-800">{booking.ministryName}</td>
                             <td className="px-4 py-3 text-sm text-gray-800">{formatBookingDateTime(booking.startDateTime)}</td>
                             <td className="px-4 py-3 text-sm text-gray-800">{formatBookingDateTime(booking.endDateTime)}</td>
                             <td className="px-4 py-3 text-sm text-gray-800 font-medium">
-                                {booking.eventName || 'No event name'}
+                                {booking.eventName || ''}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-800">
+                                {booking.seriesId ? 'Recurring' : 'Single'}
                             </td>
                             <td className="px-4 py-3 text-sm">
                                 <span className={`px-2 py-1 text-xs rounded-full font-medium
