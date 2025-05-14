@@ -55,11 +55,10 @@ const initializeDatabase = async () => {
                 id UUID PRIMARY KEY,
                 email VARCHAR(100) UNIQUE NOT NULL,
                 name VARCHAR(100) NOT NULL,
-                ministry_id UUID REFERENCES ministries(id) ON DELETE SET NULL,
                 password VARCHAR(100) NOT NULL,
                 role VARCHAR(20) DEFAULT 'user',
                 is_verified BOOLEAN DEFAULT FALSE,
-                verification_token VARCHAR(255)
+                verification_token VARCHAR(255) DEFAULT NULL
             );
         `);
 
@@ -105,6 +104,15 @@ const initializeDatabase = async () => {
             );
         `);
 
+        // Create user_ministries table
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS user_ministries (
+                id UUID PRIMARY KEY,
+                user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+                ministry_id UUID REFERENCES ministries(id) ON DELETE CASCADE
+            );
+        `);
+
         // Create logs table
         await client.query(`
             CREATE TABLE IF NOT EXISTS logs (
@@ -115,9 +123,10 @@ const initializeDatabase = async () => {
         `);
 
         const commsMinistryId = uuidv4();
+        const AlcoholicsAnonymousId = uuidv4();
         // Create starting ministries
         const ministries = [
-            { id: uuidv4(), name: 'Alcoholics Anonymous' },
+            { id: AlcoholicsAnonymousId, name: 'Alcoholics Anonymous' },
             { id: uuidv4(), name: 'Altar Servers' },
             { id: uuidv4(), name: 'Antioch' },
             { id: uuidv4(), name: 'BSC Choir' },
@@ -162,15 +171,35 @@ const initializeDatabase = async () => {
 
         // Create starting users
         const users = [
-            { id: uuidv4(), name: 'admin', ministry_id: commsMinistryId, password: await bcrypt.hash('admin', 10), role: 'admin', email: 'admin@example.com', is_verified: true, verification_token: null },    
-            { id: uuidv4(), name: 'user', ministry_id: commsMinistryId, password: await bcrypt.hash('user', 10), role: 'user', email: 'user@example.com', is_verified: true, verification_token: null },
+            { id: uuidv4(), name: 'admin', password: await bcrypt.hash('admin', 10), role: 'admin', email: 'admin@admin.com', is_verified: true, verification_token: null },    
+            { id: uuidv4(), name: 'user', password: await bcrypt.hash('user', 10), role: 'user', email: 'user@user.com', is_verified: true, verification_token: null },
         ];
 
         for (const user of users) {
             await client.query(`
-                INSERT INTO users (id, name, ministry_id, password, role, email, is_verified, verification_token)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            `, [user.id, user.name, user.ministry_id, user.password, user.role, user.email, user.is_verified, user.verification_token]);
+                INSERT INTO users (id, name, password, role, email, is_verified, verification_token)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+            `, [user.id, user.name, user.password, user.role, user.email, user.is_verified, user.verification_token]);
+
+            // Assign ministries to users
+            if (user.role === 'admin') {
+                // Assign admin to Communications ministry
+                await client.query(`
+                    INSERT INTO user_ministries (id, user_id, ministry_id)
+                    VALUES ($1, $2, $3)
+                `, [uuidv4(), user.id, commsMinistryId]);
+            } else {
+                // Regular user gets assigned to both Alcoholics Anonymous and Communications
+                await client.query(`
+                    INSERT INTO user_ministries (id, user_id, ministry_id)
+                    VALUES ($1, $2, $3)
+                `, [uuidv4(), user.id, AlcoholicsAnonymousId]);
+                
+                await client.query(`
+                    INSERT INTO user_ministries (id, user_id, ministry_id)
+                    VALUES ($1, $2, $3)
+                `, [uuidv4(), user.id, commsMinistryId]);
+            }
         }
 
         console.log('All tables and starting users created successfully');

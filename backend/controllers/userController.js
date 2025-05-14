@@ -14,10 +14,11 @@ const transporter = nodemailer.createTransport({
 });
 
 // Get all users
-exports.getAllUsers = async (req, res) => {
+exports.getUsers = async (req, res) => {
     try {
-        const result = await pool.query('SELECT id, ministry_id, name, email, role, is_verified FROM users');
-        res.json(result.rows);
+        const result = await pool.query('SELECT * FROM users');
+        const users = result.rows;
+        res.json(users);
     } catch (error) {
         console.error('Error fetching users:', error);
         res.status(500).json({ message: 'Server error while fetching users' });
@@ -28,80 +29,108 @@ exports.getAllUsers = async (req, res) => {
 exports.getUserById = async (req, res) => {
     const { id } = req.params;
     
+    // Only allow users to access their own info, unless they're admin
+    if (id !== req.user.id && req.user.role !== 'admin') {
+        return res.status(403).json({ message: 'Access denied' });
+    }
+    
     try {
-        const result = await pool.query('SELECT id, ministry_id, name, email, role, is_verified FROM users WHERE id = $1', [id]);
-        const user = result.rows;
-        if (user.length === 0) {
+        const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+        
+        if (result.rows.length === 0) {
             return res.status(404).json({ message: 'User not found' });
         }
-        res.json(user[0]);
+        
+        const user = result.rows[0];
+        
+        // Get all ministries for the user
+        const ministriesResult = await pool.query(
+            `SELECT m.id, m.name 
+             FROM ministries m 
+             JOIN user_ministries um ON m.id = um.ministry_id 
+             WHERE um.user_id = $1`,
+            [id]
+        );
+        
+        // Remove password before sending
+        delete user.password;
+        user.ministries = ministriesResult.rows;
+        
+        res.json(user);
     } catch (error) {
         console.error('Error fetching user:', error);
-        res.status(500).json({ message: 'Server error while fetching user' });
+        res.status(500).json({ message: 'Server error while fetching user details' });
     }
 };
 
-// Create new user
+// Get ministries for a user
+exports.getUserMinistries = async (req, res) => {
+    const { id } = req.params;
+    
+    try {
+        // Get all ministries for the user
+        const ministriesResult = await pool.query(
+            `SELECT m.id, m.name 
+             FROM ministries m 
+             JOIN user_ministries um ON m.id = um.ministry_id 
+             WHERE um.user_id = $1`,
+            [id]
+        );
+        
+        res.json(ministriesResult.rows);
+    } catch (error) {
+        console.error('Error fetching user ministries:', error);
+        res.status(500).json({ message: 'Server error while fetching user ministries' });
+    }
+};
+
+// Create a new user
 exports.createUser = async (req, res) => {
-    const { username, name, email, password, role } = req.body;
-    
-    if (!username || !name || !email || !password) {
-        return res.status(400).json({ message: 'Required fields are missing' });
-    }
-    
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-        return res.status(400).json({ message: 'Invalid email format' });
-    }
-    
-    // Validate role
-    if (role && role !== 'user' && role !== 'admin') {
-        return res.status(400).json({ message: 'Invalid role' });
-    }
+    const { name, email, password, role, ministry_ids } = req.body;
     
     try {
         // Check if email already exists
-        const resultEmail = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
-        const existingEmail = resultEmail.rows;
-        if (existingEmail.length > 0) {
-            return res.status(409).json({ message: 'Email already exists' });
+        const checkResult = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+        if (checkResult.rows.length > 0) {
+            return res.status(400).json({ message: 'Email already exists' });
         }
         
-        const id = uuidv4();
+        // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
-        const userRole = role || 'user'; // Default to 'user' if no role is provided
-        const verificationToken = crypto.randomBytes(32).toString('hex');
-        const is_verified = userRole === 'admin' ? true : false; // Admin users are auto-verified
+        const userId = uuidv4();
         
+        // Create the user
         await pool.query(
-            'INSERT INTO users (id, ministry_id, name, email, password, role, verification_token, is_verified) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-            [id, ministryId, name, email, hashedPassword, userRole, verificationToken, is_verified]
+            `INSERT INTO users (id, name, email, password, role) 
+             VALUES ($1, $2, $3, $4, $5)`,
+            [userId, name, email, hashedPassword, role || 'user']
         );
         
-        // Send verification email if not admin
-        if (userRole !== 'admin') {
-            await sendVerificationEmail(email, verificationToken);
+        // Add ministries if provided (up to 3)
+        if (ministry_ids && Array.isArray(ministry_ids)) {
+            // Limit to 3 ministries
+            const ministriesToAdd = ministry_ids.slice(0, 3);
+            
+            for (const ministryId of ministriesToAdd) {
+                await pool.query(
+                    `INSERT INTO user_ministries (id, user_id, ministry_id) 
+                     VALUES ($1, $2, $3)`,
+                    [uuidv4(), userId, ministryId]
+                );
+            }
         }
         
-        // Log the action
-        const logId = uuidv4();
-        const action = `Admin ${req.user.username} created new user ${name} with role ${userRole}`;
-        await pool.query(
-            'INSERT INTO logs (id, timestamp, action) VALUES ($1, NOW(), $2)',
-            [logId, action]
-        );
+        // Return the created user (without password)
+        const newUser = {
+            id: userId,
+            name,
+            email,
+            role: role || 'user'
+        };
         
-        res.status(201).json({
-            message: 'User created successfully' + (userRole !== 'admin' ? '. Verification email sent.' : ''),
-            user: {
-                id,
-                ministryId,
-                name,
-                email,
-                role: userRole,
-                is_verified
-            }
+        res.status(201).json({ 
+            message: 'User created successfully',
+            user: newUser
         });
     } catch (error) {
         console.error('Error creating user:', error);
@@ -109,135 +138,119 @@ exports.createUser = async (req, res) => {
     }
 };
 
-// Update user
+// Update a user
 exports.updateUser = async (req, res) => {
     const { id } = req.params;
-    const { ministryId, name, email, password, role } = req.body;
+    const { name, email, password, role, ministry_ids } = req.body;
+    
+    // Only allow users to update their own info, unless they're admin
+    if (id !== req.user.id && req.user.role !== 'admin') {
+        return res.status(403).json({ message: 'Access denied' });
+    }
 
-    if (!ministryId || !name) {
-        return res.status(400).json({ message: 'Ministry and name are required' });
-    }
-    
-    if (email) {
-        // Validate email format
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            return res.status(400).json({ message: 'Invalid email format' });
-        }
-    }
-    
-    // Validate role
-    if (role && role !== 'user' && role !== 'admin') {
-        return res.status(400).json({ message: 'Invalid role' });
-    }
-    
     try {
         // Check if user exists
-        const resultUser = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
-        const existingUser = resultUser.rows;
-        
-        if (existingUser.length === 0) {
+        const userResult = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+        if (userResult.rows.length === 0) {
             return res.status(404).json({ message: 'User not found' });
         }
         
-        // Check if username already exists for another user
-        const resultUsername = await pool.query('SELECT id FROM users WHERE username = $1 AND id != $2', [username, id]);
-        const usernameExists = resultUsername.rows;
+        // Build update query dynamically
+        let updateQuery = 'UPDATE users SET';
+        const updateValues = [];
+        let valueIndex = 1;
         
-        if (usernameExists.length > 0) {
-            return res.status(409).json({ message: 'Username already exists' });
+        if (name) {
+            updateQuery += ` name = $${valueIndex},`;
+            updateValues.push(name);
+            valueIndex++;
         }
         
-        // Check if email already exists for another user
-        if (email && email !== existingUser[0].email) {
-            const resultEmail = await pool.query('SELECT id FROM users WHERE email = $1 AND id != $2', [email, id]);
-            const emailExists = resultEmail.rows;
-            if (emailExists.length > 0) {
-                return res.status(409).json({ message: 'Email already exists' });
+        if (email) {
+            // Check if new email already exists for another user
+            if (email !== userResult.rows[0].email) {
+                const emailCheck = await pool.query(
+                    'SELECT * FROM users WHERE email = $1 AND id != $2',
+                    [email, id]
+                );
+                
+                if (emailCheck.rows.length > 0) {
+                    return res.status(400).json({ message: 'Email already in use' });
+                }
+            }
+            
+            updateQuery += ` email = $${valueIndex},`;
+            updateValues.push(email);
+            valueIndex++;
+        }
+        
+        if (password) {
+            const hashedPassword = await bcrypt.hash(password, 10);
+            updateQuery += ` password = $${valueIndex},`;
+            updateValues.push(hashedPassword);
+            valueIndex++;
+        }
+        
+        // Only admin can change roles
+        if (role && req.user.role === 'admin') {
+            updateQuery += ` role = $${valueIndex},`;
+            updateValues.push(role);
+            valueIndex++;
+        }
+        
+        // Remove trailing comma
+        updateQuery = updateQuery.slice(0, -1);
+        
+        // Add WHERE clause
+        updateQuery += ` WHERE id = $${valueIndex}`;
+        updateValues.push(id);
+        
+        // Execute update if there are values to update
+        if (updateValues.length > 1) { // > 1 because we always have the ID
+            await pool.query(updateQuery, updateValues);
+        }
+        
+        // Update ministries if provided
+        if (ministry_ids && Array.isArray(ministry_ids)) {
+            // First delete existing associations
+            await pool.query(
+                'DELETE FROM user_ministries WHERE user_id = $1',
+                [id]
+            );
+            
+            // Then add new ones (up to 3)
+            const ministriesToAdd = ministry_ids.slice(0, 3);
+            
+            for (const ministryId of ministriesToAdd) {
+                await pool.query(
+                    `INSERT INTO user_ministries (id, user_id, ministry_id) 
+                     VALUES ($1, $2, $3)`,
+                    [uuidv4(), id, ministryId]
+                );
             }
         }
         
-        // Update user info
-        let query = 'UPDATE users SET username = $1, name = $2';
-        let params = [username, name];
-        let paramIndex = 3;
-        
-        // Add email if provided and different
-        if (email && email !== existingUser[0].email) {
-            query += `, email = $${paramIndex}, is_verified = false, verification_token = $${paramIndex + 1}`;
-            const newVerificationToken = crypto.randomBytes(32).toString('hex');
-            params.push(email, newVerificationToken);
-            paramIndex += 2;
-            
-            // Send new verification email
-            await sendVerificationEmail(email, newVerificationToken);
-        }
-        
-        // Add role if provided
-        if (role) {
-            query += `, role = $${paramIndex}`;
-            params.push(role);
-            paramIndex++;
-        }
-        
-        // Add password if provided
-        if (password) {
-            query += `, password = $${paramIndex}`;
-            const hashedPassword = await bcrypt.hash(password, 10);
-            params.push(hashedPassword);
-            paramIndex++;
-        }
-        
-        query += ` WHERE id = $${paramIndex}`;
-        params.push(id);
-        
-        await pool.query(query, params);
-        
-        // Log the action
-        const logId = uuidv4();
-        const action = `Admin ${req.user.username} updated user ${username}`;
-        await pool.query(
-            'INSERT INTO logs (id, timestamp, action) VALUES ($1, NOW(), $2)',
-            [logId, action]
-        );
-        
-        res.json({ 
-            message: 'User updated successfully' + 
-                    (email && email !== existingUser[0].email ? '. New verification email sent.' : '')
-        });
+        res.json({ message: 'User updated successfully' });
     } catch (error) {
         console.error('Error updating user:', error);
         res.status(500).json({ message: 'Server error while updating user' });
     }
 };
 
-// Delete user
+// Delete a user
 exports.deleteUser = async (req, res) => {
     const { id } = req.params;
     
     try {
-        // Check if user exists and get their info for logging
-        const resultUser = await pool.query('SELECT username FROM users WHERE id = $1', [id]);
-        const existingUser = resultUser.rows;
+        // First delete all ministry associations
+        await pool.query('DELETE FROM user_ministries WHERE user_id = $1', [id]);
         
-        if (existingUser.length === 0) {
+        // Then delete the user
+        const result = await pool.query('DELETE FROM users WHERE id = $1', [id]);
+        
+        if (result.rowCount === 0) {
             return res.status(404).json({ message: 'User not found' });
         }
-        
-        // Don't allow deleting your own account
-        if (id === req.user.id) {
-            return res.status(400).json({ message: 'You cannot delete your own account' });
-        }
-        
-        await pool.query('DELETE FROM users WHERE id = $1', [id]);
-        
-        // Log the action
-        const logId = uuidv4();
-        const action = `Admin ${req.user.username} deleted user ${existingUser[0].username}`;
-        await pool.query(
-            'INSERT INTO logs (id, timestamp, action) VALUES ($1, NOW(), $2)',
-            [logId, action]
-        );
         
         res.json({ message: 'User deleted successfully' });
     } catch (error) {

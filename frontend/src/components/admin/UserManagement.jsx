@@ -5,6 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faCircleCheck,
     faCircleXmark,
+    faXmark
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function UserManagement({ users = [], setUsers }) {
@@ -19,7 +20,7 @@ export default function UserManagement({ users = [], setUsers }) {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [role, setRole] = useState('user');
-    const [selectedMinistry, setSelectedMinistry] = useState('');
+    const [selectedMinistries, setSelectedMinistries] = useState([]);
     
     // Edit form state
     const [editName, setEditName] = useState('');
@@ -27,10 +28,11 @@ export default function UserManagement({ users = [], setUsers }) {
     const [editPassword, setEditPassword] = useState('');
     const [editConfirmPassword, setEditConfirmPassword] = useState('');
     const [editRole, setEditRole] = useState('');
-    const [editMinistry, setEditMinistry] = useState('');
+    const [editMinistries, setEditMinistries] = useState([]);
     
     // Ministries state
     const [ministries, setMinistries] = useState([]);
+    const [userMinistries, setUserMinistries] = useState({});
 
     // Email validation function
     const validateEmail = (email) => {
@@ -60,6 +62,69 @@ export default function UserManagement({ users = [], setUsers }) {
         
         fetchMinistries();
     }, []);
+
+    // Fetch user ministries for all users
+    useEffect(() => {
+        if (users.length === 0) return;
+        
+        const fetchUserMinistries = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                const userMinistryMap = {};
+                
+                // Fetch ministries for each user
+                for (const user of users) {
+                    const response = await axios.get(
+                        `${API_BASE_URL}/users/${user.id}/ministries`,
+                        {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        }
+                    );
+                    userMinistryMap[user.id] = response.data;
+                }
+                
+                setUserMinistries(userMinistryMap);
+            } catch (error) {
+                console.error('Error fetching user ministries:', error);
+            }
+        };
+        
+        fetchUserMinistries();
+    }, [users]);
+
+    // Handle adding a ministry to selection
+    const handleAddMinistry = (ministryId) => {
+        if (selectedMinistries.length >= 3) {
+            setError('Users can only belong to a maximum of 3 ministries.');
+            return;
+        }
+        
+        if (!selectedMinistries.includes(ministryId)) {
+            setSelectedMinistries([...selectedMinistries, ministryId]);
+        }
+    };
+
+    // Handle removing a ministry from selection
+    const handleRemoveMinistry = (ministryId) => {
+        setSelectedMinistries(selectedMinistries.filter(id => id !== ministryId));
+    };
+
+    // Handle adding a ministry to edit selection
+    const handleAddEditMinistry = (ministryId) => {
+        if (editMinistries.length >= 3) {
+            setError('Users can only belong to a maximum of 3 ministries.');
+            return;
+        }
+        
+        if (!editMinistries.includes(ministryId)) {
+            setEditMinistries([...editMinistries, ministryId]);
+        }
+    };
+
+    // Handle removing a ministry from edit selection
+    const handleRemoveEditMinistry = (ministryId) => {
+        setEditMinistries(editMinistries.filter(id => id !== ministryId));
+    };
 
     // Handle creating a new user
     const handleCreateUser = async (e) => {
@@ -93,7 +158,7 @@ export default function UserManagement({ users = [], setUsers }) {
                     email, 
                     password, 
                     role,
-                    ministry_id: selectedMinistry || null
+                    ministry_ids: selectedMinistries
                 },
                 {
                     headers: { 
@@ -103,7 +168,18 @@ export default function UserManagement({ users = [], setUsers }) {
             );
             
             // Add the new user to the list
-            setUsers([...users, response.data.user]);
+            const newUser = response.data.user;
+            setUsers([...users, newUser]);
+            
+            // Update user ministries
+            setUserMinistries({
+                ...userMinistries,
+                [newUser.id]: selectedMinistries.map(id => {
+                    const ministry = ministries.find(m => m.id === id);
+                    return { id, name: ministry ? ministry.name : 'Unknown' };
+                })
+            });
+            
             setSuccess('User created successfully. ' + 
                 (role !== 'admin' ? 'A verification email has been sent to the user.' : ''));
             
@@ -113,7 +189,7 @@ export default function UserManagement({ users = [], setUsers }) {
             setPassword('');
             setConfirmPassword('');
             setRole('user');
-            setSelectedMinistry('');
+            setSelectedMinistries([]);
         } catch (error) {
             console.error('Error creating user:', error);
             setError(error.response?.data?.message || 'Failed to create user');
@@ -130,7 +206,10 @@ export default function UserManagement({ users = [], setUsers }) {
         setEditPassword('');
         setEditConfirmPassword('');
         setEditRole(user.role);
-        setEditMinistry(user.ministry_id || '');
+        
+        // Set edit ministries from user's current ministries
+        const userMins = userMinistries[user.id] || [];
+        setEditMinistries(userMins.map(m => m.id));
     };
     
     // Handle updating a user
@@ -161,7 +240,7 @@ export default function UserManagement({ users = [], setUsers }) {
             const userData = {
                 name: editName,
                 role: editRole,
-                ministry_id: editMinistry || null
+                ministry_ids: editMinistries
             };
             
             // Only include email if it's provided
@@ -190,10 +269,18 @@ export default function UserManagement({ users = [], setUsers }) {
                     ...user, 
                     name: editName,
                     email: editEmail,
-                    role: editRole,
-                    ministry_id: editMinistry
+                    role: editRole
                 } : user
             );
+            
+            // Update user ministries
+            setUserMinistries({
+                ...userMinistries,
+                [editingUser.id]: editMinistries.map(id => {
+                    const ministry = ministries.find(m => m.id === id);
+                    return { id, name: ministry ? ministry.name : 'Unknown' };
+                })
+            });
             
             setUsers(updatedUsers);
             setSuccess('User updated successfully' + 
@@ -229,6 +316,12 @@ export default function UserManagement({ users = [], setUsers }) {
             // Remove the user from the list
             const updatedUsers = users.filter(user => user.id !== userId);
             setUsers(updatedUsers);
+            
+            // Remove user from ministries map
+            const updatedUserMinistries = { ...userMinistries };
+            delete updatedUserMinistries[userId];
+            setUserMinistries(updatedUserMinistries);
+            
             setSuccess('User deleted successfully');
         } catch (error) {
             console.error('Error deleting user:', error);
@@ -236,6 +329,12 @@ export default function UserManagement({ users = [], setUsers }) {
         } finally {
             setLoading(false);
         }
+    };
+
+    // Get ministry names for a user
+    const getUserMinistryNames = (userId) => {
+        const userMins = userMinistries[userId] || [];
+        return userMins.map(m => m.name).join(', ') || 'None';
     };
 
     // Find ministry name by ID
@@ -283,17 +382,50 @@ export default function UserManagement({ users = [], setUsers }) {
                     </div>
                     
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Ministry</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Ministries (Up to 3)</label>
                         <select
                             className="w-full p-2 border border-gray-300 rounded-md"
-                            value={selectedMinistry}
-                            onChange={(e) => setSelectedMinistry(e.target.value)}
+                            value=""
+                            onChange={(e) => {
+                                if (e.target.value) {
+                                    handleAddMinistry(e.target.value);
+                                    e.target.value = "";
+                                }
+                            }}
                         >
-                            <option value="">None</option>
-                            {ministries.map(ministry => (
-                                <option key={ministry.id} value={ministry.id}>{ministry.name}</option>
-                            ))}
+                            <option value="">Select ministry</option>
+                            {ministries
+                                .filter(ministry => !selectedMinistries.includes(ministry.id))
+                                .map(ministry => (
+                                    <option key={ministry.id} value={ministry.id}>{ministry.name}</option>
+                                ))
+                            }
                         </select>
+                        
+                        {/* Display selected ministries with remove option */}
+                        <div className="mt-2 flex flex-wrap gap-2">
+                            {selectedMinistries.map(ministryId => (
+                                <div 
+                                    key={ministryId} 
+                                    className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded flex items-center"
+                                >
+                                    {getMinistryName(ministryId)}
+                                    <button 
+                                        type="button"
+                                        onClick={() => handleRemoveMinistry(ministryId)}
+                                        className="ml-1 text-blue-600 hover:text-blue-800"
+                                    >
+                                        <FontAwesomeIcon icon={faXmark} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                        
+                        {selectedMinistries.length === 3 && (
+                            <p className="mt-1 text-xs text-amber-600">
+                                Maximum of 3 ministries reached.
+                            </p>
+                        )}
                     </div>
 
                     <div>
@@ -354,7 +486,7 @@ export default function UserManagement({ users = [], setUsers }) {
                         <tr>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ministry</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ministries</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Verified</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -365,7 +497,7 @@ export default function UserManagement({ users = [], setUsers }) {
                             <tr key={user.id} className="hover:bg-gray-50">
                                 <td className="px-4 py-3 text-sm text-gray-800">{user.email}</td>
                                 <td className="px-4 py-3 text-sm text-gray-800">{user.name}</td>
-                                <td className="px-4 py-3 text-sm text-gray-800">{getMinistryName(user.ministry_id)}</td>
+                                <td className="px-4 py-3 text-sm text-gray-800">{getUserMinistryNames(user.id)}</td>
                                 <td className="px-4 py-3 text-sm text-gray-800">
                                     <span className={`px-2 py-1 text-xs rounded-full font-medium
                                         ${user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}`}
@@ -451,17 +583,50 @@ export default function UserManagement({ users = [], setUsers }) {
                             </div>
                             
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Ministry</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Ministries (Up to 3)</label>
                                 <select
                                     className="w-full p-2 border border-gray-300 rounded-md"
-                                    value={editMinistry}
-                                    onChange={(e) => setEditMinistry(e.target.value)}
+                                    value=""
+                                    onChange={(e) => {
+                                        if (e.target.value) {
+                                            handleAddEditMinistry(e.target.value);
+                                            e.target.value = "";
+                                        }
+                                    }}
                                 >
-                                    <option value="">None</option>
-                                    {ministries.map(ministry => (
-                                        <option key={ministry.id} value={ministry.id}>{ministry.name}</option>
-                                    ))}
+                                    <option value="">Select ministry</option>
+                                    {ministries
+                                        .filter(ministry => !editMinistries.includes(ministry.id))
+                                        .map(ministry => (
+                                            <option key={ministry.id} value={ministry.id}>{ministry.name}</option>
+                                        ))
+                                    }
                                 </select>
+                                
+                                {/* Display selected ministries with remove option */}
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                    {editMinistries.map(ministryId => (
+                                        <div 
+                                            key={ministryId} 
+                                            className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded flex items-center"
+                                        >
+                                            {getMinistryName(ministryId)}
+                                            <button 
+                                                type="button"
+                                                onClick={() => handleRemoveEditMinistry(ministryId)}
+                                                className="ml-1 text-blue-600 hover:text-blue-800"
+                                            >
+                                                <FontAwesomeIcon icon={faXmark} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                                
+                                {editMinistries.length === 3 && (
+                                    <p className="mt-1 text-xs text-amber-600">
+                                        Maximum of 3 ministries reached.
+                                    </p>
+                                )}
                             </div>
                             
                             <div>

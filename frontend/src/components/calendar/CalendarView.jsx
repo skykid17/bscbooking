@@ -8,9 +8,33 @@ export default function CalendarView({ room, bookings = [] }) {
     const [showModal, setShowModal] = useState(false);
     
     // Filter bookings for current room and approved status
-    const filteredBookings = bookings.filter(booking => 
-        booking.room === room && booking.status === 'approved'
-    );
+        const filteredBookings = bookings.filter(booking => {
+        // Debug logging
+        console.log("Comparing booking:", {
+            bookingRoom: booking.room,
+            bookingRoomName: booking.roomName,
+            requestedRoom: room,
+            status: booking.status
+        });
+        
+        // Check both room and roomName to be more flexible
+        const roomMatches = booking.room === room || booking.roomName === room;
+        const isApproved = booking.status === 'approved';
+        
+        return roomMatches && isApproved;
+    });
+    
+    // Log filtered bookings for debugging
+    useEffect(() => {
+        console.log("All bookings:", bookings);
+        console.log("Filtered bookings for room:", room, filteredBookings);
+    }, [bookings, room, filteredBookings]);
+    
+    // Log filtered bookings for debugging
+    useEffect(() => {
+        console.log("All bookings:", bookings);
+        console.log("Filtered bookings for room:", room, filteredBookings);
+    }, [bookings, room, filteredBookings]);
     
     // Generate calendar days for the current month
     useEffect(() => {
@@ -59,29 +83,47 @@ export default function CalendarView({ room, bookings = [] }) {
         setCalendarDays(days);
     }, [currentDate]);
     
+    // Format date as YYYY-MM-DD for comparison
+    const formatDateForCompare = (date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+    
     // Get bookings for a specific day
     const getBookingsForDay = (date) => {
-        // Format the calendar date as YYYY-MM-DD for comparison
-        const calendarYear = date.getFullYear();
-        const calendarMonth = String(date.getMonth() + 1).padStart(2, '0');
-        const calendarDay = String(date.getDate()).padStart(2, '0');
-        const calendarDateStr = `${calendarYear}-${calendarMonth}-${calendarDay}`;
+        const calendarDateStr = formatDateForCompare(date);
         
         return filteredBookings.filter(booking => {
             try {
-                // Format booking start date
-                const startDate = new Date(booking.startDateTime);
-                const startYear = startDate.getFullYear();
-                const startMonth = String(startDate.getMonth() + 1).padStart(2, '0');
-                const startDay = String(startDate.getDate()).padStart(2, '0');
-                const startDateStr = `${startYear}-${startMonth}-${startDay}`;
+                // Parse booking dates, handling SQL date-time strings and ISO strings
+                let startDateTime, endDateTime;
                 
-                // Format booking end date
-                const endDate = new Date(booking.endDateTime);
-                const endYear = endDate.getFullYear();
-                const endMonth = String(endDate.getMonth() + 1).padStart(2, '0');
-                const endDay = String(endDate.getDate()).padStart(2, '0');
-                const endDateStr = `${endYear}-${endMonth}-${endDay}`;
+                if (typeof booking.startDateTime === 'string') {
+                    // Handle SQL date-time format (YYYY-MM-DD HH:MM:SS) or ISO format
+                    startDateTime = new Date(booking.startDateTime.replace(' ', 'T'));
+                } else {
+                    startDateTime = new Date(booking.startDateTime);
+                }
+                
+                if (typeof booking.endDateTime === 'string') {
+                    endDateTime = new Date(booking.endDateTime.replace(' ', 'T'));
+                } else {
+                    endDateTime = new Date(booking.endDateTime);
+                }
+                
+                // Format as YYYY-MM-DD for comparison
+                const startDateStr = formatDateForCompare(startDateTime);
+                const endDateStr = formatDateForCompare(endDateTime);
+                
+                // Debug comparisons
+                console.log(`Comparing dates for booking ${booking.id}:`, {
+                    calendarDate: calendarDateStr,
+                    startDate: startDateStr,
+                    endDate: endDateStr,
+                    isWithinRange: calendarDateStr >= startDateStr && calendarDateStr <= endDateStr
+                });
                 
                 // Check if calendar date is within the booking date range
                 return (
@@ -93,6 +135,30 @@ export default function CalendarView({ room, bookings = [] }) {
                 return false;
             }
         });
+    };
+    
+    // Check if booking starts on this day
+    const doesBookingStartOnDay = (booking, date) => {
+        const calendarDateStr = formatDateForCompare(date);
+        const startDateTime = new Date(booking.startDateTime);
+        const startDateStr = formatDateForCompare(startDateTime);
+        
+        return calendarDateStr === startDateStr;
+    };
+    
+    // Check if booking is continuing from previous day
+    const isBookingContinuing = (booking, date) => {
+        const calendarDateStr = formatDateForCompare(date);
+        const startDateTime = new Date(booking.startDateTime);
+        const startDateStr = formatDateForCompare(startDateTime);
+        
+        return calendarDateStr !== startDateStr;
+    };
+    
+    // Format time for display (12-hour format with AM/PM)
+    const formatTimeDisplay = (dateTimeString) => {
+        const date = new Date(dateTimeString);
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
     
     const handlePrevMonth = () => {
@@ -159,7 +225,7 @@ export default function CalendarView({ room, bookings = [] }) {
                                     Math.floor(index / 7) !== 5 ? 'border-b' : ''
                                 } border-gray-100 h-28 ${
                                     day.isCurrentMonth ? 'bg-white' : 'bg-gray-50'
-                                } transition-colors`}
+                                } transition-colors relative`}
                             >
                                 <div className={`text-right mb-1 ${
                                     isToday ? 'relative' : ''
@@ -176,13 +242,28 @@ export default function CalendarView({ room, bookings = [] }) {
                                     {dayBookings.map(booking => (
                                         <div 
                                             key={booking.id}
-                                            className="text-xs mb-1 p-1 bg-blue-100 text-blue-800 rounded cursor-pointer hover:bg-blue-200"
+                                            className={`text-xs mb-1 p-1 rounded cursor-pointer 
+                                              ${doesBookingStartOnDay(booking, day.date) 
+                                                ? 'bg-blue-100 text-blue-800 hover:bg-blue-200' 
+                                                : 'bg-blue-50 text-blue-600 hover:bg-blue-100 border-l-4 border-blue-300'}`}
                                             onClick={() => handleBookingClick(booking)}
                                         >
-                                            {booking.eventName} (
-                                                {new Date(booking.startDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}-
-                                                {new Date(booking.endDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                            )
+                                            <div className="font-medium truncate">
+                                                {booking.eventName}
+                                            </div>
+                                            <div className="flex justify-between text-xs text-blue-700 flex-wrap">
+                                                {doesBookingStartOnDay(booking, day.date) ? (
+                                                    <span>
+                                                        {formatTimeDisplay(booking.startDateTime)}-
+                                                        {formatTimeDisplay(booking.endDateTime)}
+                                                    </span>
+                                                ) : (
+                                                    <span className="italic">continued</span>
+                                                )}
+                                                {booking.ministryName && (
+                                                    <span className="italic ml-1 truncate">{booking.ministryName}</span>
+                                                )}
+                                            </div>
                                         </div>
                                     ))}
                                 </div>

@@ -124,14 +124,16 @@ const pool = require('../config/db');
                 });
             }
 
-            // Get ministry name if user has a ministry
-            let ministryName = null;
-            if (user[0].ministry_id) {
-                const ministryResult = await pool.query('SELECT name FROM ministries WHERE id = $1', [user[0].ministry_id]);
-                if (ministryResult.rows.length > 0) {
-                    ministryName = ministryResult.rows[0].name;
-                }
-            }
+            // Get ALL ministries for the user
+            const ministriesResult = await pool.query(
+                `SELECT m.id, m.name 
+                 FROM ministries m 
+                 JOIN user_ministries um ON m.id = um.ministry_id 
+                 WHERE um.user_id = $1`,
+                [user[0].id]
+            );
+            
+            const userMinistries = ministriesResult.rows;
 
             const token = jwt.sign({
                 id: user[0].id,
@@ -147,8 +149,7 @@ const pool = require('../config/db');
                     email: user[0].email,
                     role: user[0].role,
                     is_verified: user[0].is_verified,
-                    ministry_id: user[0].ministry_id,
-                    ministry_name: ministryName
+                    ministries: userMinistries
                 }
             });
         } catch (error) {

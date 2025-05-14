@@ -7,7 +7,8 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
     const formattedToday = today.toISOString().split('T')[0]; // YYYY-MM-DD format
     const twoYearsFromNow = new Date(today.getFullYear() + 2, today.getMonth(), today.getDate()).toISOString().split('T')[0];
     
-    const [room, setRoom] = useState(rooms.length > 0 ? rooms[0].name : "");
+    // Initialize with empty string but update when rooms are available
+    const [room, setRoom] = useState("");
     const [startDate, setStartDate] = useState(formattedToday);
     const [endDate, setEndDate] = useState(formattedToday);
     const [startTime, setStartTime] = useState('09:00');
@@ -17,29 +18,16 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
-    const [submitting, setSubmitting] = useState(false);
-    const [notification, setNotification] = useState(null);
     
     // For admin booking on behalf of users
     const [users, setUsers] = useState([]);
-    const [selectedUserId, setSelectedUserId] = useState(user.id);
+    const [selectedUserId, setSelectedUserId] = useState(user.id); // Already set to logged in user id
     const [loadingUsers, setLoadingUsers] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
 
-    const handleSearch = (e) => {
-        setSearchTerm(e.target.value);
-    };
-
-    const filterUsers = () => {
-        const terms = searchTerm.toLowerCase().split(' ');
-        return users.filter(u => {
-            const userInfo = `${u.name.toLowerCase()} ${u.email.toLowerCase()}`;
-            return terms.every(term => userInfo.includes(term));
-        });
-    };
     // For ministry selection
     const [ministries, setMinistries] = useState([]);
-    const [selectedMinistryId, setSelectedMinistryId] = useState(user.ministry_id || '');
+    const [ministryId, setMinistryId] = useState(); // Set default as user's first ministry
     const [loadingMinistries, setLoadingMinistries] = useState(false);
     
     // New state for advanced repeating options
@@ -67,6 +55,76 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
     const [endOnDate, setEndOnDate] = useState(
         new Date(today.getFullYear(), today.getMonth() + 3, today.getDate()).toISOString().split('T')[0]
     );
+
+    const handleSearch = (e) => {
+        const newSearchTerm = e.target.value;
+        setSearchTerm(newSearchTerm);
+        
+        // Auto-select first matching user when typing
+        if (newSearchTerm.trim() !== '') {
+            const terms = newSearchTerm.toLowerCase().split(' ');
+            const filteredUsers = users.filter(u => {
+                const userInfo = `${u.name.toLowerCase()} ${u.email.toLowerCase()}`;
+                return terms.every(term => userInfo.includes(term));
+            });
+            
+            // If there are matching users, select the first one
+            if (filteredUsers.length > 0) {
+                const firstMatchingUser = filteredUsers[0];
+                
+                // Only update if it's a different user
+                if (firstMatchingUser.id !== selectedUserId) {
+                    setSelectedUserId(firstMatchingUser.id);
+                    
+                    // Also fetch ministries for this user if admin
+                    if (user.role === 'admin') {
+                        fetchUserMinistries(firstMatchingUser.id);
+                    }
+                }
+            } else if (searchTerm.trim() === '') {
+                // Reset to logged in user if search is cleared
+                setSelectedUserId(user.id);
+                
+                if (user.role === 'admin') {
+                    fetchUserMinistries(user.id);
+                }
+            }
+        }
+    };
+
+    // Helper function to fetch ministries for a user
+    const fetchUserMinistries = async (userId) => {
+        try {
+            setLoadingMinistries(true);
+            const token = localStorage.getItem('token');
+            const response = await axios.get(`${API_BASE_URL}/users/${userId}/ministries`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            setMinistries(response.data);
+            
+            // Automatically set ministry ID to first ministry if available
+            if (response.data && response.data.length > 0) {
+                setMinistryId(response.data[0].id);
+            } else {
+                setMinistryId(null);
+            }
+            
+        } catch (error) {
+            console.error('Error fetching user ministries:', error);
+        } finally {
+            setLoadingMinistries(false);
+        }
+    };
+
+    const filterUsers = () => {
+        const terms = searchTerm.toLowerCase().split(' ');
+        return users.filter(u => {
+            const userInfo = `${u.name.toLowerCase()} ${u.email.toLowerCase()}`;
+            return terms.every(term => userInfo.includes(term));
+        });
+    };
+
 
     // Generate time slots (6:00 AM to 12:00 AM in 30-minute increments)
     const generateTimeSlots = (isToday = false) => {
@@ -127,17 +185,31 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
     
     // Function to update end time slots based on current selections
     const updateEndTimeSlots = (start, end, selectedStartTime) => {
-        const newEndTimeSlots = start === end 
-            ? allTimeSlots.filter(time => time >= selectedStartTime)
-            : allTimeSlots;
-            
-        setEndTimeSlots(newEndTimeSlots);
-        
-        // If end time is no longer valid, update it
-        if (newEndTimeSlots.length > 0 && !newEndTimeSlots.includes(endTime)) {
-            setEndTime(newEndTimeSlots[0]);
+    let newEndTimeSlots;
+
+    if (start === end) {
+        const startIndex = allTimeSlots.indexOf(selectedStartTime);
+        newEndTimeSlots = allTimeSlots.slice(startIndex + 1); // Exclude the start time
+    } else {
+        newEndTimeSlots = allTimeSlots;
+    }
+    setEndTimeSlots(newEndTimeSlots);
+    
+    // If end time is no longer valid, update it
+    if (newEndTimeSlots.length > 0 && !newEndTimeSlots.includes(endTime)) {
+        setEndTime(newEndTimeSlots[0]);
+    }
+};
+
+
+    // Set default room when rooms are loaded
+    useEffect(() => {
+        if (rooms && rooms.length > 0) {
+            setRoom(rooms[0].name); // Set to first room when rooms are loaded
+        } else {
+            console.warn("No rooms available to set as default");
         }
-    };
+    }, [rooms]);
 
     // Fetch all users if current user is admin
     useEffect(() => {
@@ -164,18 +236,36 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
         }
     }, [user.role]);
     
-    // Fetch ministries if current user has a ministry or is admin
+    // Fetch ministries if current user has ministries or is admin
     useEffect(() => {
         const fetchMinistries = async () => {
             try {
                 setLoadingMinistries(true);
                 const token = localStorage.getItem('token');
 
-                const response = await axios.get(`${API_BASE_URL}/ministries`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                let response;
+                if (user.role === 'admin') {
+                    // Admin initially sees only their own ministries
+                    response = await axios.get(`${API_BASE_URL}/users/${user.id}/ministries`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                } else if (user.ministries && user.ministries.length > 0) {
+                    // Regular users only see their own ministries
+                    response = { data: user.ministries };
+                } else {
+                    // Fallback in case user ministries aren't in state
+                    response = await axios.get(`${API_BASE_URL}/users/${user.id}/ministries`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                }
                 
                 setMinistries(response.data);
+                
+                // Automatically set ministry ID to first ministry if available
+                if (response.data && response.data.length > 0) {
+                    setMinistryId(response.data[0].id);
+                }
+                
             } catch (error) {
                 console.error('Error fetching ministries:', error);
                 setError('Failed to load ministries.');
@@ -184,20 +274,17 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
             }
         };
         
-        if (user.role === 'admin' || user.ministry_id) {
-            fetchMinistries();
-        }
-    }, [user.role, user.ministry_id]);
+        fetchMinistries();
+    }, [user.id, user.role, user.ministries]);
 
     // Handle user selection change
-    const handleUserChange = (e) => {
+    const handleUserChange = async (e) => {
         const userId = e.target.value;
-        const selectedUser = users.find(u => u.id === userId);
+        setSelectedUserId(userId);
         
-        if (selectedUser) {
-            setSelectedUserId(selectedUser.id);
-        } else {
-            setSelectedUserId(user.id);
+        // When admin changes user, fetch that user's ministries
+        if (user.role === 'admin') {
+            fetchUserMinistries(userId);
         }
     };
     
@@ -331,6 +418,13 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
         setError('');
         setSuccess('');
 
+        // Additional validation before sending request
+        if (!room || room === '') {
+            setError('Please select a room');
+            setIsLoading(false);
+            return;
+        }
+
         try {
             // Prepare data for API
             const bookingData = {
@@ -338,9 +432,9 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
                 startDateTime: formatDateTimeForAPI(startDate, startTime),
                 endDateTime: formatDateTimeForAPI(endDate, endTime),
                 eventName: eventName,
-                frequency: frequency, // Make sure frequency is explicitly included at the root level
+                frequency: frequency,
                 userId: selectedUserId || user.id,
-                ministryId: selectedMinistryId || user.ministry_id || null
+                ministryId: ministryId || null // Ensure null is sent when no ministry is selected
             };
             
             // Add repeat configuration if this is a recurring booking
@@ -416,7 +510,35 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
         setEndCondition('after');
         setOccurrences(1);
         setEndOnDate(new Date(today.getFullYear(), today.getMonth() + 3, today.getDate()).toISOString().split('T')[0]);
-        setSelectedMinistryId(user.ministry_id || '');
+        
+        // Reset user to current logged in user for admin
+        if (user.role === 'admin') {
+            setSelectedUserId(user.id);
+            
+            // Reset to admin's own ministries
+            const fetchAdminMinistries = async () => {
+                try {
+                    const token = localStorage.getItem('token');
+                    const response = await axios.get(`${API_BASE_URL}/users/${user.id}/ministries`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    
+                    setMinistries(response.data);
+                    
+                    // Automatically set ministry ID to first ministry if available
+                    if (response.data && response.data.length > 0) {
+                        setMinistryId(response.data[0].id);
+                    } else {
+                        setMinistryId(null);
+                    }
+                    
+                } catch (error) {
+                    console.error('Error fetching admin ministries:', error);
+                }
+            };
+            
+            fetchAdminMinistries();
+        }
     };
     
     // Render repeating options based on frequency
@@ -748,22 +870,23 @@ export default function BookingForm({ user, rooms, onBookingCreated }) {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Ministry</label>
                     <select
                         className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        value={selectedMinistryId}
-                        onChange={(e) => setSelectedMinistryId(e.target.value)}
-                        disabled={loadingMinistries || (user.role !== 'admin' && !user.ministry_id)}
+                        value={ministryId || ''} // Use empty string for form but keep state as null
+                        onChange={(e) => setMinistryId(e.target.value || null)} // Convert empty string to null
+                        disabled={loadingMinistries || ministries.length === 0}
                     >
-                        <option value="">None</option>
                         {loadingMinistries ? (
-                            <option>Loading ministries...</option>
+                            <option disabled>Loading ministries...</option>
+                        ) : ministries.length === 0 ? (
+                            <option value="">No ministries available</option>
                         ) : (
                             ministries.map(ministry => (
                                 <option key={ministry.id} value={ministry.id}>{ministry.name}</option>
                             ))
                         )}
                     </select>
-                    {user.role !== 'admin' && !user.ministry_id && (
+                    {ministries.length === 0 && !loadingMinistries && (
                         <p className="mt-1 text-xs text-gray-500">
-                            Only users assigned to a ministry or admins can select a ministry.
+                            No ministries available for this user.
                         </p>
                     )}
                 </div>

@@ -13,22 +13,29 @@ exports.getAllMinistries = async (req, res) => {
     }
 };
 
-// Get ministry by ID
-exports.getMinistryById = async (req, res) => {
-    const { id } = req.params;
+// Get ministries by user ID
+exports.getMinistriesByUserId = async (req, res) => {
+    const { userId } = req.params;
     
     try {
-        const result = await pool.query('SELECT * FROM ministries WHERE id = $1', [id]);
-        const ministry = result.rows;
+        const query = `
+            SELECT m.id, m.name 
+            FROM user_ministries um
+            JOIN ministries m ON um.ministry_id = m.id
+            WHERE um.user_id = $1
+        `;
+
+        const result = await pool.query(query, [userId]);
+        const ministries = result.rows;
         
-        if (ministry.length === 0) {
-            return res.status(404).json({ message: 'Ministry not found' });
+        if (ministries.length === 0) {
+            return res.status(404).json({ message: 'No ministries found for the user' });
         }
         
-        res.json(ministry[0]);
+        res.json(ministries);
     } catch (error) {
-        console.error('Error fetching ministry:', error);
-        res.status(500).json({ message: 'Server error while fetching ministry' });
+        console.error('Error fetching ministries for user:', error);
+        res.status(500).json({ message: 'Server error while fetching ministries' });
     }
 };
 

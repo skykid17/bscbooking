@@ -1,32 +1,34 @@
 const express = require('express');
 const router = express.Router();
 const { 
-    getAllUsers, 
-    getUserById, 
-    createUser, 
-    updateUser, 
-    deleteUser 
+    getUsers,
+    getUserById,
+    createUser,
+    updateUser,
+    deleteUser,
+    getUserMinistries
 } = require('../controllers/userController');
 const { authenticate, adminOnly } = require('../middleware/authMiddleware');
 
 // Apply authentication middleware to all routes
 router.use(authenticate);
-// Apply admin middleware to all routes since user management is admin-only
-router.use(adminOnly);
 
-// Get all users
-router.get('/', getAllUsers);
+// Get all users (admin only)
+router.get('/', adminOnly, getUsers);
 
-// Get user by ID
+// Get user by ID 
 router.get('/:id', getUserById);
 
-// Create new user
-router.post('/', createUser);
+// Get ministries for a specific user
+router.get('/:id/ministries', getUserMinistries);
 
-// Update user
+// Create a new user (admin only)
+router.post('/', adminOnly, createUser);
+
+// Update a user
 router.put('/:id', updateUser);
 
-// Delete user
-router.delete('/:id', deleteUser);
+// Delete a user (admin only)
+router.delete('/:id', adminOnly, deleteUser);
 
 module.exports = router;

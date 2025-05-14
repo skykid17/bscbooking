@@ -48,6 +48,7 @@ export default function AdminDashboard({ user }) {
     useEffect(() => {
         const fetchRooms = async () => {
             try {
+                setLoading(true); // Add a loading state if not already present
                 const token = localStorage.getItem('token');
                 const response = await axios.get(
                     `${VITE_API_URL}/rooms`,
@@ -62,13 +63,22 @@ export default function AdminDashboard({ user }) {
                     id: room.id,
                     name: room.name
                 }));
+                
+                console.log("Admin: Rooms fetched:", roomObjects);
+                
+                if (roomObjects.length === 0) {
+                    console.warn("Admin: No rooms available from server");
+                }
+                
                 setRooms(roomObjects);
                 if (roomObjects.length > 0) {
                     setSelectedRoom(roomObjects[0].name);
                 }
             } catch (error) {
                 console.error('Error fetching rooms:', error);
-                alert('Failed to fetch rooms. Please try again.');
+                toast.error('Failed to fetch rooms');
+            } finally {
+                setLoading(false); // Clear loading state
             }
         };
         
@@ -273,12 +283,18 @@ export default function AdminDashboard({ user }) {
             <div className="p-6">
                 {/* Conditional rendering based on active tab */}
                 {activeTab === 'create-booking' && (
-                    <BookingForm 
-                        user={user} 
-                        rooms={rooms} 
-                        onBookingCreated={handleBookingCreated}
-                        onRefresh={fetchBookings} 
-                    />
+                    rooms.length > 0 ? (
+                        <BookingForm 
+                            user={user} 
+                            rooms={rooms} 
+                            onBookingCreated={handleBookingCreated}
+                            onRefresh={fetchBookings} 
+                        />
+                    ) : (
+                        <div className="text-center py-4">
+                            <p className="text-gray-600">Loading rooms or no rooms available. Please try again later.</p>
+                        </div>
+                    )
                 )}
                 
                 {activeTab === 'calendar' && (

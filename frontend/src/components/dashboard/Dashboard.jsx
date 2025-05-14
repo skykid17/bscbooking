@@ -14,6 +14,8 @@ export default function Dashboard({ user }) {
     const [rooms, setRooms] = useState([]);
     const [selectedRoom, setSelectedRoom] = useState('');
     const [bookings, setBookings] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
 
     const fetchBookings = useCallback(async () => {
         try {
@@ -61,6 +63,7 @@ export default function Dashboard({ user }) {
     useEffect(() => {
         const fetchRooms = async () => {
             try {
+                setLoading(true);
                 const token = localStorage.getItem('token');
                 const response = await axios.get(
                     `${API_BASE_URL}/rooms`,
@@ -75,13 +78,22 @@ export default function Dashboard({ user }) {
                     id: room.id,
                     name: room.name
                 }));
+                
+                console.log("Rooms fetched:", roomObjects);
+                
+                if (roomObjects.length === 0) {
+                    console.warn("No rooms available from server");
+                }
+                
                 setRooms(roomObjects);
                 if (roomObjects.length > 0) {
                     setSelectedRoom(roomObjects[0].name);
                 }
             } catch (error) {
                 console.error('Error fetching rooms:', error);
-                alert('Failed to fetch rooms. Please try again.');
+                setError('Failed to fetch rooms. Please try again.');
+            } finally {
+                setLoading(false);
             }
         };
         
@@ -113,19 +125,25 @@ export default function Dashboard({ user }) {
                     </div>
                 )}
                 {activeTab === 'create-booking' && (
-                    <BookingForm 
-                        user={user} 
-                        rooms={rooms} 
-                        onBookingCreated={(booking) => {
-                            setBookings(prev => [...prev, booking]);
-                            toast.success(
-                                booking.status === 'approved' 
-                                    ? 'Booking created successfully' 
-                                    : 'Booking submitted for approval'
-                            );
-                        }} 
-                        onRefresh={fetchBookings}
-                    />
+                    rooms.length > 0 ? (
+                        <BookingForm 
+                            user={user} 
+                            rooms={rooms} 
+                            onBookingCreated={(booking) => {
+                                setBookings(prev => [...prev, booking]);
+                                toast.success(
+                                    booking.status === 'approved' 
+                                        ? 'Booking created successfully' 
+                                        : 'Booking submitted for approval'
+                                );
+                            }} 
+                            onRefresh={fetchBookings}
+                        />
+                    ) : (
+                        <div className="text-center py-4">
+                            <p className="text-gray-600">Loading rooms or no rooms available. Please try again later.</p>
+                        </div>
+                    )
                 )}
                 {activeTab === 'calendar' && (
                     <div>

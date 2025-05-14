@@ -24,13 +24,16 @@ exports.createBooking = async (req, res) => {
     }
 
     // Enhanced validation to check for empty strings as well
-    if (!room || room === '' || !startDateTime || !endDateTime || !eventName || eventName === '' || !userId) {
-        console.log("Missing or empty required fields:", { 
-            room: room || '(empty)', 
-            startDateTime, 
-            endDateTime, 
-            eventName: eventName || '(empty)', 
-            userId 
+    if (!room || !startDateTime || !endDateTime || !eventName || eventName === '' || !userId || !frequency) {
+        console.log("Missing or empty required fields:", {
+            room,
+            startDateTime,
+            endDateTime,
+            eventName,
+            userId,
+            userName,
+            ministryId,
+            frequency
         });
         return res.status(400).json({ message: "Required fields are missing or empty" });
     }
@@ -45,8 +48,24 @@ exports.createBooking = async (req, res) => {
             userId,
             ministryId,
             frequency,
+            repeatConfig
         });
         
+        // If ministry ID is provided, verify user has access to this ministry
+        if (ministryId) {
+            const ministryCheck = await pool.query(
+                `SELECT * FROM user_ministries 
+                 WHERE user_id = $1 AND ministry_id = $2`,
+                [userId, ministryId]
+            );
+            
+            if (ministryCheck.rows.length === 0) {
+                return res.status(403).json({ 
+                    message: "You can only create bookings for ministries you belong to" 
+                });
+            }
+        }
+
         // Lookup room_id from room name
         const roomResult = await pool.query('SELECT id FROM rooms WHERE name = $1', [room]);
         if (roomResult.rows.length === 0) {
@@ -131,18 +150,23 @@ exports.createBooking = async (req, res) => {
                 repeatConfig.repeatOn, repeatConfig.endsAfter, repeatConfig.endsOn
             );
             
+            console.log(`Generated ${occurrences.length} occurrences for recurring booking`);
+            
             const approvedBy = isAdmin ? req.user.id : null;
 
             for (const occurrence of occurrences) {
                 const id = uuidv4();
+                console.log(`Creating occurrence: ${occurrence.startDateTime} - ${occurrence.endDateTime}`);
+                
                 await pool.query(
                     `INSERT INTO bookings 
                     (id, user_id, ministry_id, room_id, event_name, start_datetime, end_datetime, series_id, frequency, created_at, approved_at, approved_by, status) 
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW(), $10, $11)`,
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), $10, $11, $12)`,
                     [
                         id, userId, ministryId, roomId, eventName,
                         occurrence.startDateTime, occurrence.endDateTime,
                         seriesId, frequency,
+                        isAdmin ? new Date() : null,
                         approvedBy, status
                     ]
                 );
@@ -275,37 +299,64 @@ exports.getBookings = async (req, res) => {
 // Helper function to generate all occurrences for a repeating booking
 function generateOccurrences(startDateTime, endDateTime, repeatType, interval, repeatOn, endsAfter, endsOn) {
     const occurrences = [];
+    console.log("Generating occurrences with params:", { 
+        startDateTime, endDateTime, repeatType, interval, repeatOn, endsAfter, endsOn 
+    });
 
-    // Use explicit UTC parsing
-    let currentStart = new Date(startDateTime + 'Z');
-    let currentEnd = new Date(endDateTime + 'Z');
+    // Parse dates properly
+    let currentStart = new Date(startDateTime);
+    let currentEnd = new Date(endDateTime);
 
     let occurrenceCount = 0;
-
-    const maxAllowedEnd = new Date(startDateTime + 'Z');
+    
+    // Set maximum end date (2 years from start date or specific end date)
+    const maxAllowedEnd = new Date(currentStart);
     maxAllowedEnd.setFullYear(maxAllowedEnd.getFullYear() + 2);
+    
+    // If endsOn is provided, use it; otherwise use maxAllowedEnd
+    const maxEndDate = endsOn ? new Date(endsOn) : maxAllowedEnd;
 
-    const maxEndDate = endsOn ? new Date(endsOn + 'Z') : maxAllowedEnd;
+    // Add the first occurrence regardless of the repeat pattern
+    occurrences.push({
+        startDateTime: formatTime(currentStart),
+        endDateTime: formatTime(currentEnd)
+    });
+    occurrenceCount++;
 
-    while ((!endsAfter || occurrenceCount < endsAfter) &&
-           (!maxEndDate || currentStart <= maxEndDate)) {
-
+    // Set the start date for the next occurrence
+    currentStart = advanceDate(currentStart, repeatType, interval);
+    const durationMs = new Date(endDateTime) - new Date(startDateTime);
+    currentEnd = new Date(currentStart.getTime() + durationMs);
+    
+    // Maximum safety limit to prevent infinite loops
+    const MAX_ITERATIONS = 1000;
+    let iterations = 0;
+    
+    // Generate subsequent occurrences
+    while (
+        ((!endsAfter || occurrenceCount < endsAfter) &&
+        (!maxEndDate || currentStart <= maxEndDate)) &&
+        iterations < MAX_ITERATIONS
+    ) {
+        iterations++;
+        
         if (shouldIncludeOccurrence(currentStart, repeatType, repeatOn)) {
+            console.log(`Including occurrence on ${currentStart.toISOString()}`);
             occurrences.push({
                 startDateTime: formatTime(currentStart),
                 endDateTime: formatTime(currentEnd)
             });
             occurrenceCount++;
+        } else {
+            console.log(`Skipping occurrence on ${currentStart.toISOString()} - doesn't match criteria`);
         }
 
-        const newStart = advanceDate(currentStart, repeatType, interval);
-        const durationMs = currentEnd - currentStart;
-        const newEnd = new Date(newStart.getTime() + durationMs);
-
-        currentStart = newStart;
-        currentEnd = newEnd;
+        // Advance to the next potential date
+        currentStart = advanceDate(currentStart, repeatType, interval);
+        currentEnd = new Date(currentStart.getTime() + durationMs);
     }
 
+    console.log(`Generated ${occurrences.length} occurrences`);
     return occurrences;
 }
 
@@ -318,6 +369,9 @@ function shouldIncludeOccurrence(date, repeatType, repeatOn) {
     const dayOfWeek = date.getDay(); // 0 = Sunday, 1 = Monday, etc.
     const dayOfMonth = date.getDate();
     const month = date.getMonth(); // 0 = January, 11 = December
+    
+    console.log(`Checking occurrence: ${date.toISOString()}, day: ${dayOfWeek}, date: ${dayOfMonth}, month: ${month}`);
+    console.log(`Repeat config:`, { repeatType, repeatOn });
 
     switch (repeatType) {
         case 'daily':
@@ -334,20 +388,29 @@ function shouldIncludeOccurrence(date, repeatType, repeatOn) {
                 return dayOfMonth === repeatOn.day;
             } else if (repeatOn.type === 'day-of-week') {
                 // Repeat on a specific occurrence of a day (e.g., 2nd Tuesday)
-                const weekNumber = Math.ceil(dayOfMonth / 7);
+                // Calculate which occurrence of this weekday in the month
+                let count = 0;
+                let tempDate = new Date(date.getFullYear(), date.getMonth(), 1);
+                
+                // Count occurrences of this weekday in this month up to the current date
+                while (tempDate <= date) {
+                    if (tempDate.getDay() === repeatOn.day) {
+                        count++;
+                    }
+                    tempDate.setDate(tempDate.getDate() + 1);
+                }
                 
                 // Handle 'last' week of month (-1)
                 if (repeatOn.position === -1) {
-                    const nextMonth = new Date(date);
-                    nextMonth.setMonth(nextMonth.getMonth() + 1);
-                    nextMonth.setDate(0); // Last day of current month
-                    
-                    // Check if within the last 7 days of the month
-                    const daysUntilEnd = nextMonth.getDate() - dayOfMonth;
-                    return dayOfWeek === repeatOn.day && daysUntilEnd < 7;
+                    // Check if this is the last occurrence of this day in the month
+                    const nextDate = new Date(date);
+                    nextDate.setDate(date.getDate() + 7); // Add a week
+                    // If next occurrence is in a different month, this is the last one
+                    return nextDate.getMonth() !== date.getMonth() && date.getDay() === repeatOn.day;
                 }
                 
-                return dayOfWeek === repeatOn.day && weekNumber === repeatOn.position;
+                console.log(`Day ${repeatOn.day}, Position ${repeatOn.position}, Count ${count}`);
+                return dayOfWeek === repeatOn.day && count === repeatOn.position;
             }
             return false;
             
@@ -389,7 +452,15 @@ function formatDate(date) {
 }
 
 function formatTime(date) {
-    return date.toISOString().slice(0, 19).replace('T', ' ');
+    // Format as YYYY-MM-DD HH:MM:SS
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
 
 function addDays(date, days) {

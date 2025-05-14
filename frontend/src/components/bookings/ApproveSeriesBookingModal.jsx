@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { toast } from 'react-toastify';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL
+import { API_BASE_URL } from '../../utils/apiConfig';
 
 export default function ApproveSeriesBookingModal({ booking, onClose, onApproved }) {
     const [approveType, setApproveType] = useState('this');
@@ -61,57 +59,18 @@ export default function ApproveSeriesBookingModal({ booking, onClose, onApproved
         }
     };
 
-    const handleAction = async () => {
-        try {
-            setIsLoading(true);
-            setError('');
-
-            const token = localStorage.getItem('token');
-
-            let url = '';
-
-            if (isSeriesBooking) {
-                url = `${API_BASE_URL}/bookings/series/${booking.id}/${action}`;
-                url += action === 'approve' ? `?approveType=${approveType}` : `?rejectType=${approveType}`;
-            } else {
-                url = `${API_BASE_URL}/bookings/${booking.id}/${action}`;
-            }
-
-            await axios.put(url, {}, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            onApproved(action, approveType);
-            onClose();
-
-        } catch (err) {
-            console.error(`${action.charAt(0).toUpperCase() + action.slice(1)} error:`, err);
-            if (err.response) {
-                setError(err.response?.data?.message || `Error ${err.response.status}: Failed to ${action} booking.`);
-            } else if (err.request) {
-                setError('Server did not respond. Please check if the backend is running.');
-            } else {
-                setError('Failed to send request: ' + err.message);
-            }
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    
     return (
-        <div className="fixed inset-0 flex items-center justify-center z-50 modal-backdrop">
-            <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
                 <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-semibold">
+                    <h3 className="text-xl font-bold">
                         {action === 'approve' ? 'Approve Booking' : 'Reject Booking'}
-                    </h2>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
-                        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
+                    </h3>
+                    <button 
+                        onClick={onClose}
+                        className="text-gray-500 hover:text-gray-700"
+                    >
+                        &times;
                     </button>
                 </div>
                 
@@ -121,87 +80,97 @@ export default function ApproveSeriesBookingModal({ booking, onClose, onApproved
                     </div>
                 )}
                 
-                <div className="mb-4">
-                    <p className="text-gray-800">
-                        {action === 'approve' 
-                            ? 'Are you sure you want to approve this booking?' 
-                            : 'Are you sure you want to reject this booking?'}
-                    </p>
-                    <div className="mt-2 p-3 bg-gray-50 rounded">
-                        <p className="font-medium">{booking?.eventName}</p>
-                        <p className="text-sm text-gray-600">
-                            {booking?.room} • {new Date(booking?.startDate).toLocaleDateString()} • {booking?.startTime} - {booking?.endTime}
-                        </p>
-                        <p className="text-sm text-gray-600 mt-1">
-                            Requested by: {booking?.userName}
-                            {booking?.ministry_id && (
-                                <span className="ml-1">({getMinistryName(booking.ministry_id)})</span>
-                            )}
-                        </p>
+                <div className="mb-6 p-4 bg-gray-50 rounded-md">
+                    <h4 className="font-medium text-gray-700 mb-2">Booking Details</h4>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                        <p className="text-gray-500">Event:</p>
+                        <p>{booking?.eventName}</p>
+                        
+                        <p className="text-gray-500">Room:</p>
+                        <p>{booking?.roomName}</p>
+                        
+                        <p className="text-gray-500">User:</p>
+                        <p>{booking?.userName}</p>
+                        
+                        {booking?.ministryName && (
+                            <>
+                                <p className="text-gray-500">Ministry:</p>
+                                <p>{booking?.ministryName}</p>
+                            </>
+                        )}
                     </div>
                 </div>
                 
-                {/* Series options - Only show if it's part of a series */}
                 {isSeriesBooking && (
-                    <div className="mb-4 p-3 bg-blue-50 rounded border border-blue-200">
-                        <h3 className="text-sm font-medium text-blue-800 mb-2">This is part of a recurring series</h3>
+                    <div className="mb-6">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Select which bookings to {action}:
+                        </label>
                         <div className="space-y-2">
-                            <div className="flex items-center">
-                                <input 
-                                    type="radio" 
-                                    id="approve-this" 
-                                    name="approve-type" 
-                                    value="this" 
-                                    checked={approveType === 'this'} 
+                            <label className="flex items-center">
+                                <input
+                                    type="radio"
+                                    name="approveType"
+                                    value="this"
+                                    checked={approveType === 'this'}
                                     onChange={() => setApproveType('this')}
-                                    className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                                    className="mr-2"
                                 />
-                                <label htmlFor="approve-this" className="ml-2 text-sm text-gray-700">
-                                    This event only
-                                </label>
-                            </div>
-                            <div className="flex items-center">
-                                <input 
-                                    type="radio" 
-                                    id="approve-future" 
-                                    name="approve-type" 
-                                    value="future" 
-                                    checked={approveType === 'future'} 
+                                <span>This occurrence only</span>
+                            </label>
+                            <label className="flex items-center">
+                                <input
+                                    type="radio"
+                                    name="approveType"
+                                    value="future"
+                                    checked={approveType === 'future'}
                                     onChange={() => setApproveType('future')}
-                                    className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                                    className="mr-2"
                                 />
-                                <label htmlFor="approve-future" className="ml-2 text-sm text-gray-700">
-                                    This and future events
-                                </label>
-                            </div>
-                            <div className="flex items-center">
-                                <input 
-                                    type="radio" 
-                                    id="approve-all" 
-                                    name="approve-type" 
-                                    value="all" 
-                                    checked={approveType === 'all'} 
+                                <span>This and all future occurrences</span>
+                            </label>
+                            <label className="flex items-center">
+                                <input
+                                    type="radio"
+                                    name="approveType"
+                                    value="all"
+                                    checked={approveType === 'all'}
                                     onChange={() => setApproveType('all')}
-                                    className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                                    className="mr-2"
                                 />
-                                <label htmlFor="approve-all" className="ml-2 text-sm text-gray-700">
-                                    All events in series
-                                </label>
-                            </div>
+                                <span>All occurrences</span>
+                            </label>
                         </div>
                     </div>
                 )}
                 
-                <div className="flex justify-between pt-4">
+                <div className="flex justify-between mt-6">
                     <div>
                         <button
                             type="button"
-                            onClick={() => setAction(action === 'approve' ? 'reject' : 'approve')}
-                            className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-100 mr-2"
-                            disabled={isLoading}
+                            onClick={() => setAction('reject')}
+                            className={`px-4 py-2 border rounded mr-2 ${
+                                action === 'reject'
+                                ? 'bg-red-600 text-white border-red-600'
+                                : 'border-red-300 text-red-600'
+                            }`}
                         >
-                            {action === 'approve' ? 'Switch to Reject' : 'Switch to Approve'}
+                            Reject
                         </button>
+                        <button
+                            type="button"
+                            onClick={() => setAction('approve')}
+                            className={`px-4 py-2 border rounded ${
+                                action === 'approve'
+                                ? 'bg-green-600 text-white border-green-600'
+                                : 'border-green-300 text-green-600'
+                            }`}
+                        >
+                            Approve
+                        </button>
+                    </div>
+                    
+                    <div className="space-x-2">
                         <button
                             type="button"
                             onClick={onClose}
@@ -210,18 +179,19 @@ export default function ApproveSeriesBookingModal({ booking, onClose, onApproved
                         >
                             Cancel
                         </button>
+                        <button
+                            type="button"
+                            onClick={() => handleApproveReject(action)}
+                            disabled={isLoading}
+                            className={`px-4 py-2 rounded ${
+                                action === 'approve'
+                                ? 'bg-green-600 hover:bg-green-700 text-white'
+                                : 'bg-red-600 hover:bg-red-700 text-white'
+                            }`}
+                        >
+                            {isLoading ? 'Processing...' : action === 'approve' ? 'Confirm Approval' : 'Confirm Rejection'}
+                        </button>
                     </div>
-                    <button
-                        type="button"
-                        onClick={handleAction}
-                        className={`px-4 py-2 ${action === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'} text-white rounded`}
-                        disabled={isLoading}
-                    >
-                        {isLoading 
-                            ? (action === 'approve' ? 'Approving...' : 'Rejecting...') 
-                            : (action === 'approve' ? 'Approve' : 'Reject')
-                        }
-                    </button>
                 </div>
             </div>
         </div>
