@@ -13,6 +13,25 @@ exports.getAllMinistries = async (req, res) => {
     }
 };
 
+// Get ministry by ID
+exports.getMinistryById = async (req, res) => {
+    const { id } = req.params;
+    
+    try {
+        const result = await pool.query('SELECT * FROM ministries WHERE id = $1', [id]);
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Ministry not found' });
+        }
+        
+        const ministry = result.rows[0];
+        res.json(ministry);
+    } catch (error) {
+        console.error('Error fetching ministry:', error);
+        res.status(500).json({ message: 'Server error while fetching ministry' });
+    }
+};
+
 // Get ministries by user ID
 exports.getMinistriesByUserId = async (req, res) => {
     const { userId } = req.params;
